@@ -1,0 +1,33 @@
+<svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="fitness_grad" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#10B981"/>
+      <stop offset="1" stop-color="#06B6D4"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+  
+  <!-- Stylized Barbell -->
+  <g filter="url(#shadow)">
+    <!-- Handle -->
+    <rect x="20" y="46" width="60" height="8" rx="4" fill="url(#fitness_grad)"/>
+    
+    <!-- Left Plate Outer -->
+    <rect x="10" y="25" width="12" height="50" rx="6" fill="url(#fitness_grad)"/>
+    <!-- Left Plate Inner -->
+    <rect x="22" y="32" width="6" height="36" rx="3" fill="url(#fitness_grad)" fill-opacity="0.5"/>
+    
+    <!-- Right Plate Outer -->
+    <rect x="78" y="25" width="12" height="50" rx="6" fill="url(#fitness_grad)"/>
+    <!-- Right Plate Inner -->
+    <rect x="72" y="32" width="6" height="36" rx="3" fill="url(#fitness_grad)" fill-opacity="0.5"/>
+    
+    <!-- Center V-Shape Accents (for "VibeFit") -->
+    <path d="M45 42L50 48L55 42" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
+  </g>
+  
+  <!-- Dynamic Element: Pulse Line -->
+  <path d="M10 85C30 85 40 75 50 75C60 75 70 85 90 85" stroke="url(#fitness_grad)" stroke-width="3" stroke-linecap="round" opacity="0.3"/>
+</svg>
