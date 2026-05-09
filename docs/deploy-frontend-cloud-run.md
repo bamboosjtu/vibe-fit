@@ -60,5 +60,6 @@ gcloud run deploy $env:SERVICE `
   --image="$env:IMAGE" `
   --platform=managed `
   --region="$env:REGION" `
+  --port=80 `
   --allow-unauthenticated
 ```
