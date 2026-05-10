@@ -1,6 +1,6 @@
 # 部署手册
 
-## 本地开发环境
+## 一、本地 docker 联调环境
 
 ### 前端
 
@@ -33,7 +33,7 @@ docker run --rm -p 8080:8080 `
 
 这会启动一个本地服务器，并将其映射到本地的 8080 端口。你可以在浏览器中访问 http://localhost:8080 访问。
 
-## 云端生产环境
+## 二、Cloud Run 联调环境
 
 ### 步骤 0：配置环境
 
@@ -58,28 +58,40 @@ gcloud artifacts repositories create $env:REPO `
   --repository-format=docker `
   --location=$env:REGION `
   --description="Vibe Fit container images"
+
+# 5. 列出仓库
+gcloud artifacts repositories list --location=asia-east1  
 ```
 
 ### 步骤 2：部署前端
 
 ```powershell
 # 构建并发布到 Artifacts
-$env:SERVICE = "vibe-fit-frontend"
-$env:IMAGE = "$env:REGION-docker.pkg.dev/$env:PROJECT_ID/$env:REPO/$env:SERVICE`:latest"
+$env:FRONTEND_SERVICE = "vibe-fit-frontend"
+$env:FRONTEND_IMAGE = "$env:REGION-docker.pkg.dev/$env:PROJECT_ID/$env:REPO/$env:FRONTEND_SERVICE`:latest"
 
-gcloud builds submit --tag="$env:IMAGE" .
+gcloud builds submit --tag="$env:FRONTEND_IMAGE" .
 
 # 部署到 Cloud Run
-gcloud run deploy $env:SERVICE `
-  --image="$env:IMAGE" `
-  --platform=managed `
-  --region="$env:REGION" `
-  --port=80 `
+gcloud run deploy $env:FRONTEND_SERVICE `
+  --image="$env:FRONTEND_IMAGE" `
+  --region=$env:REGION `
   --allow-unauthenticated
 ```
 
 ### 步骤 3：部署后端
 
 ```powershell
+# 构建并发布到 Artifacts
+$env:BACKEND_SERVICE = "vibe-fit-backend-dev"
+$env:BACKEND_IMAGE = "$env:REGION-docker.pkg.dev/$env:PROJECT_ID/$env:REPO/$env:BACKEND_SERVICE`:latest"
+gcloud builds submit --tag="$env:BACKEND_IMAGE" .
 
+# 部署到 Cloud Run
+$env:FRONTEND_URL = "https://vibe-fit-frontend-1085526549756.asia-east1.run.app"
+gcloud run deploy $env:BACKEND_SERVICE `
+  --image="$env:BACKEND_IMAGE" `
+  --region=$env:REGION `
+  --allow-unauthenticated `
+  --set-env-vars NODE_ENV=production,AUTH_MODE=mock,DATA_MODE=mock,JWT_SECRET=dev-only-cloud-run-secret,LOG_PRETTY=false,CORS_ORIGIN=https://vibe-fit-frontend-1085526549756.asia-east1.run.app
 ```

@@ -6,7 +6,7 @@
 
 ## 一、基础 URL
 
-在开发环境中，后端运行在 `http://localhost:3000`。
+在开发环境和本地联调环境中，后端运行在 `http://localhost:8080`。
 
 ## 二、接口概览 (Endpoints Overview)
 

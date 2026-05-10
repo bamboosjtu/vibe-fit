@@ -56,7 +56,7 @@ export const env = {
 
   CORS_ORIGIN: getOptionalEnv('CORS_ORIGIN', ''),
 
-  LOG_PRETTY: getOptionalEnv('LOG_PRETTY', isProduction ? 'false' : 'true') === 'true',
+  LOG_PRETTY: getOptionalEnv('LOG_PRETTY', 'false') === 'true',
 
   // 关键点：
   // 开发环境可以用默认值，生产环境必须显式配置 JWT_SECRET。
