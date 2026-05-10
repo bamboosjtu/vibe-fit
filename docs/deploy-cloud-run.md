@@ -1,0 +1,97 @@
+# 部署手册
+
+## 一、本地 docker 联调环境
+
+### 前端
+
+```powershell
+cd frontend
+# 步骤 1：构建 Docker 镜像
+docker build --no-cache -t vibefit-frontend .
+
+# 步骤 2：运行镜像
+docker run -p 80:80 vibefit-frontend
+```
+
+这会启动一个本地服务器，并将其映射到本地的 80 端口。你可以在浏览器中访问 http://localhost:80 访问。
+
+### 后端
+
+```powershell
+cd frontend
+docker build --no-cache -t vibefit-backend .
+
+docker run --rm -p 8080:8080 `
+  -e NODE_ENV=production `
+  -e AUTH_MODE=mock `
+  -e DATA_MODE=mock `
+  -e JWT_SECRET=dev-only-secret `
+  -e CORS_ORIGIN=http://localhost,http://localhost:80,http://localhost:5173 `
+  -e LOG_PRETTY=false `
+  vibefit-backend
+```
+
+这会启动一个本地服务器，并将其映射到本地的 8080 端口。你可以在浏览器中访问 http://localhost:8080 访问。
+
+## 二、Cloud Run 联调环境
+
+### 步骤 0：配置环境
+
+```powershell
+$env:PROJECT_ID = "your-gcp-project-id"
+$env:REGION = "asia-east1"
+$env:REPO = "vibe-fit"
+
+# 1. 登录 Google Cloud
+gcloud auth login
+
+# 2. 选择项目
+gcloud config set project $env:PROJECT_ID
+
+# 3. 启用 Cloud Run 和 Cloud Build API
+gcloud services enable run.googleapis.com
+gcloud services enable cloudbuild.googleapis.com
+gcloud services enable artifactregistry.googleapis.com
+
+# 4. 构建仓库
+gcloud artifacts repositories create $env:REPO `
+  --repository-format=docker `
+  --location=$env:REGION `
+  --description="Vibe Fit container images"
+
+# 5. 列出仓库
+gcloud artifacts repositories list --location=asia-east1  
+```
+
+### 步骤 2：部署前端
+
+```powershell
+# 构建并发布到 Artifacts
+$env:FRONTEND_SERVICE = "vibe-fit-frontend"
+$env:FRONTEND_IMAGE = "$env:REGION-docker.pkg.dev/$env:PROJECT_ID/$env:REPO/$env:FRONTEND_SERVICE`:latest"
+
+gcloud builds submit --tag="$env:FRONTEND_IMAGE" .
+
+# 部署到 Cloud Run
+gcloud run deploy $env:FRONTEND_SERVICE `
+  --image="$env:FRONTEND_IMAGE" `
+  --region=$env:REGION `
+  --allow-unauthenticated
+```
+
+### 步骤 3：部署后端
+
+```powershell
+# 构建并发布到 Artifacts
+$env:BACKEND_SERVICE = "vibe-fit-backend-dev"
+$env:BACKEND_IMAGE = "$env:REGION-docker.pkg.dev/$env:PROJECT_ID/$env:REPO/$env:BACKEND_SERVICE`:latest"
+gcloud builds submit --tag="$env:BACKEND_IMAGE" .
+
+# 部署到 Cloud Run
+$env:FRONTEND_URL = "https://vibe-fit-frontend-1085526549756.asia-east1.run.app"
+gcloud run deploy $env:BACKEND_SERVICE `
+  --image="$env:BACKEND_IMAGE" `
+  --region=$env:REGION `
+  --allow-unauthenticated `
+  --set-env-vars NODE_ENV=production,AUTH_MODE=mock,DATA_MODE=mock,JWT_SECRET=dev-only-cloud-run-secret,LOG_PRETTY=false,CORS_ORIGIN=https://vibe-fit-frontend-1085526549756.asia-east1.run.app
+```
