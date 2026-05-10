@@ -33,5 +33,7 @@ frontend/dist
 .env.local
 .env.*.local
 
-
 reference/
+
+# .playwright-test-results
+.playwright-cli/

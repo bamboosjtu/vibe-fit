@@ -4,6 +4,7 @@ import { TodayPage } from './pages/Today/TodayPage';
 import { PlansPage } from './pages/Plans/PlansPage';
 import { HistoryPage } from './pages/History/HistoryPage';
 import { SettingsPage } from './pages/Settings/SettingsPage';
+import { AuthPage } from './pages/Auth/AuthPage';
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
           <Route path="/plans" element={<PlansPage />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/auth" element={<AuthPage />} />
           <Route path="*" element={<Navigate to="/today" replace />} />
         </Routes>
       </Layout>

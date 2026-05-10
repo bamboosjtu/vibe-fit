@@ -1,10 +1,12 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
-const SYNC_TOKEN = import.meta.env.VITE_SYNC_TOKEN || '';
+import { useAuthStore } from '../stores/authStore';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
 function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
-  if (SYNC_TOKEN) {
-    headers['Authorization'] = `Bearer ${SYNC_TOKEN}`;
+  const token = useAuthStore.getState().token;
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
   return headers;
 }
@@ -97,7 +99,7 @@ export interface HealthzResponse {
 }
 
 export async function checkHealth(): Promise<HealthzResponse> {
-  return get<HealthzResponse>('/healthz');
+  return get<HealthzResponse>('/health');
 }
 
 export async function checkBackendConnection(): Promise<{ connected: boolean; latencyMs: number; version?: string }> {

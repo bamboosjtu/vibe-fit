@@ -1,21 +1,30 @@
-# 前端部署手册
+# 部署手册
 
 ## 本地开发环境
 
-### 步骤 1：构建 Docker 镜像
+### 前端
 
 ```powershell
 cd frontend
-docker build -t vibe-fit-frontend .
-```
+# 步骤 1：构建 Docker 镜像
+docker build --no-cache -t vibefit-frontend .
 
-### 步骤 2：运行镜像
-
-```powershell
-docker run -p 8080:80 vibe-fit-frontend
+# 步骤 2：运行镜像
+docker run -p 8080:80 vibefit-frontend
 ```
 
 这会启动一个本地服务器，并将其映射到本地的 8080 端口。你可以在浏览器中访问 http://localhost:8080 访问。
+
+### 后端
+
+```powershell
+cd frontend
+docker build --no-cache -t vibefit-backend .
+
+docker run -p 3000:3000 -e PORT=3000 -e JWT_SECRET="your-secret" vibefit-backend
+```
+
+这会启动一个本地服务器，并将其映射到本地的 3000 端口。你可以在浏览器中访问 http://localhost:3000 访问。
 
 ## 云端生产环境
 
@@ -44,22 +53,26 @@ gcloud artifacts repositories create $env:REPO `
   --description="Vibe Fit container images"
 ```
 
-### 步骤 2：构建
+### 步骤 2：部署前端
 
 ```powershell
+# 构建并发布到 Artifacts
 $env:SERVICE = "vibe-fit-frontend"
 $env:IMAGE = "$env:REGION-docker.pkg.dev/$env:PROJECT_ID/$env:REPO/$env:SERVICE`:latest"
 
 gcloud builds submit --tag="$env:IMAGE" .
-```
 
-### 步骤 3：部署到 Cloud Run
-
-```powershell
+# 部署到 Cloud Run
 gcloud run deploy $env:SERVICE `
   --image="$env:IMAGE" `
   --platform=managed `
   --region="$env:REGION" `
   --port=80 `
   --allow-unauthenticated
+```
+
+### 步骤 3：部署后端
+
+```powershell
+
 ```
