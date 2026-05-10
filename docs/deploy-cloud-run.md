@@ -10,10 +10,10 @@ cd frontend
 docker build --no-cache -t vibefit-frontend .
 
 # 步骤 2：运行镜像
-docker run -p 8080:80 vibefit-frontend
+docker run -p 80:80 vibefit-frontend
 ```
 
-这会启动一个本地服务器，并将其映射到本地的 8080 端口。你可以在浏览器中访问 http://localhost:8080 访问。
+这会启动一个本地服务器，并将其映射到本地的 80 端口。你可以在浏览器中访问 http://localhost:80 访问。
 
 ### 后端
 
@@ -21,10 +21,17 @@ docker run -p 8080:80 vibefit-frontend
 cd frontend
 docker build --no-cache -t vibefit-backend .
 
-docker run -p 3000:3000 -e PORT=3000 -e JWT_SECRET="your-secret" vibefit-backend
+docker run --rm -p 8080:8080 `
+  -e NODE_ENV=production `
+  -e AUTH_MODE=mock `
+  -e DATA_MODE=mock `
+  -e JWT_SECRET=dev-only-secret `
+  -e CORS_ORIGIN=http://localhost,http://localhost:80,http://localhost:5173 `
+  -e LOG_PRETTY=false `
+  vibefit-backend
 ```
 
-这会启动一个本地服务器，并将其映射到本地的 3000 端口。你可以在浏览器中访问 http://localhost:3000 访问。
+这会启动一个本地服务器，并将其映射到本地的 8080 端口。你可以在浏览器中访问 http://localhost:8080 访问。
 
 ## 云端生产环境
 

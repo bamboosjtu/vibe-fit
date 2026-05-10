@@ -10,7 +10,7 @@ import authRoutes from './routes/auth.js';
 const fastify = Fastify({
   logger: {
     level: env.isDev() ? 'debug' : 'info',
-    transport: env.isDev()
+    transport: env.LOG_PRETTY
       ? {
           target: 'pino-pretty',
           options: {
