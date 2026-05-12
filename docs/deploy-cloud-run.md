@@ -36,9 +36,14 @@ docker run --rm -p 8080:8080 `
 
 ### SQL
 
-```
-npx prisma migrate status
+```powershell
+npx prisma migrate reset --force
 npx prisma migrate dev --name init
+npx prisma migrate dev --name init
+npx prisma migrate status
+
+# 查看docker的环境变量
+docker inspect <container_name> --format '{{range .Config.Env}}{{println .}}{{end}}' | Select-String "POSTGRES"
 ```
 
 ## 二、Cloud Run 联调环境
@@ -46,17 +51,18 @@ npx prisma migrate dev --name init
 ### 步骤 0：配置环境
 
 ```powershell
-$env:PROJECT_ID = "your-gcp-project-id"
+$env:PROJECT_ID = "<your-gcp-project-id>"
 $env:REGION = "asia-east1"
 $env:REPO = "vibe-fit"
 
 $env:INSTANCE_ID = "vibe-fit-postgres"
 $env:DB_NAME = "vibefit"
 $env:DB_USER = "vibefit_app"
-$env:DB_PASSWORD = "your-strong-password"
+$env:DB_PASSWORD = "<your-strong-password>"
+$env:INSTANCE_CONNECTION_NAME = "${env:PROJECT_ID}:${env:REGION}:${env:INSTANCE_ID}"
+
 $env:BACKEND_SERVICE_ACCOUNT = "vibe-fit-backend-sa"
 $env:BACKEND_SERVICE_ACCOUNT_EMAIL = "${env:BACKEND_SERVICE_ACCOUNT}@${env:PROJECT_ID}.iam.gserviceaccount.com"
-$env:INSTANCE_CONNECTION_NAME = "${env:PROJECT_ID}:${env:REGION}:${env:INSTANCE_ID}"
 
 $env:FRONTEND_URL = "https://vibe-fit-frontend-1085526549756.asia-east1.run.app"
 ```

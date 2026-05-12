@@ -23,10 +23,13 @@ gcloud sql operations list `
 gcloud sql operations describe <OPERATION_ID> `
   --project="$env:PROJECT_ID"
 
-gcloud sql instances create vibe-fit-postgres `  --database-version=POSTGRES_16 `
---region=asia-east1 `  --edition=ENTERPRISE `
---tier=db-f1-micro `  --availability-type=ZONAL `
---storage-size=10GB
+gcloud sql instances create vibe-fit-postgres `
+  --database-version=POSTGRES_16 `
+  --region=asia-east1 `
+  --edition=ENTERPRISE `
+  --tier=db-f1-micro `
+  --availability-type=ZONAL `
+  --storage-size=10GB
 ```
 
 ## 步骤2：创建数据库
@@ -69,7 +72,10 @@ $env:DATABASE_URL_VALUE = "postgresql://${env:DB_USER}:${env:DB_PASSWORD}@127.0.
 $env:DATABASE_URL_VALUE | gcloud secrets create vibe-fit-database-url --data-file=-
 
 # 如果 secret 已存在：
-$env:DATABASE_URL_VALUE | gcloud secrets versions add vibe-fit-database-url --data-file=-
+$tempSecretFile = "$env:TEMP\vibe-fit-database-url.txt"
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($tempSecretFile, $env:DATABASE_URL_VALUE, $utf8NoBom)
+gcloud secrets versions add vibe-fit-database-url --data-file=$tempSecretFile --project=$env:PROJECT_ID
 
 # 查看secret
 gcloud secrets versions access latest --secret=vibe-fit-database-url --project=$env:PROJECT_ID
