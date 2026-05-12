@@ -6,9 +6,11 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
+COPY prisma ./prisma
 COPY tsconfig.json ./
 COPY src ./src
 
+RUN npx prisma generate
 RUN npm run build
 
 # Production stage
@@ -23,6 +25,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 EXPOSE 8080
 

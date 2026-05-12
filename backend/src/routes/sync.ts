@@ -1,6 +1,5 @@
 import type { FastifyInstance } from "fastify";
 import { badRequest } from "../plugins/errorHandler.js";
-import { mockDb } from "../mockDb.js";
 import { repositories } from "../repositories/index.js";
 
 interface PushBody {
@@ -41,10 +40,6 @@ export default async function syncRoutes(fastify: FastifyInstance) {
         "Missing required fields: schemaVersion, exportedAt, appVersion",
       );
     }
-
-    if (body.settings) mockDb.settings.set(user.id, body.settings);
-    if (body.plans) mockDb.plans.set(user.id, body.plans);
-    if (body.sessions) mockDb.sessions.set(user.id, body.sessions);
 
     const backup = await repositories.backups.create({
       userId: user.id,
