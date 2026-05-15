@@ -18,7 +18,7 @@ docker run -p 80:80 vibefit-frontend
 ### 后端
 
 ```powershell
-cd frontend
+cd backend
 docker build --no-cache -t vibefit-backend .
 
 docker run --rm -p 8080:8080 `
@@ -39,8 +39,10 @@ docker run --rm -p 8080:8080 `
 ```powershell
 npx prisma migrate reset --force
 npx prisma migrate dev --name init
-npx prisma migrate dev --name init
+npm prisma migrate deploy
 npx prisma migrate status
+
+npx prisma studio
 
 # 查看docker的环境变量
 docker inspect <container_name> --format '{{range .Config.Env}}{{println .}}{{end}}' | Select-String "POSTGRES"
@@ -110,7 +112,7 @@ gcloud artifacts repositories list --location=asia-east1
 # 构建并发布到 Artifacts
 $env:FRONTEND_SERVICE = "vibe-fit-frontend"
 $env:TAG = Get-Date -Format "yyyyMMddHHmmss"
-$env:FRONTEND_IMAGE = "$env:REGION-docker.pkg.dev/$env:PROJECT_ID/$env:REPO/$env:FRONTEND_SERVICE`:{$env:TAG}"
+$env:FRONTEND_IMAGE = "${env:REGION}-docker.pkg.dev/${env:PROJECT_ID}/${env:REPO}/${env:FRONTEND_SERVICE}:${env:TAG}"
 
 gcloud builds submit --tag="$env:FRONTEND_IMAGE" .
 
@@ -128,7 +130,7 @@ gcloud run deploy $env:FRONTEND_SERVICE `
 # 构建并发布到 Artifacts
 $env:BACKEND_SERVICE = "vibe-fit-backend-dev"
 $env:TAG = Get-Date -Format "yyyyMMddHHmmss"
-$env:BACKEND_IMAGE = "$env:REGION-docker.pkg.dev/$env:PROJECT_ID/$env:REPO/$env:BACKEND_SERVICE`:{$env:TAG}"
+$env:BACKEND_IMAGE = "${env:REGION}-docker.pkg.dev/${env:PROJECT_ID}/${env:REPO}/${env:BACKEND_SERVICE}:${env:TAG}"
 gcloud builds submit --tag="$env:BACKEND_IMAGE" .
 
 # 部署到 Cloud Run

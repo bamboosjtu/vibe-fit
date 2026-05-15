@@ -14,6 +14,9 @@ import { ArrowBack as ArrowBackIcon } from "@mui/icons-material";
 import { useAuthStore } from "../../stores/authStore";
 import { post } from "../../services/apiClient";
 
+const authMode = import.meta.env.VITE_AUTH_MODE ?? "mock";
+const isGoogleMode = authMode === "google";
+
 export function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
@@ -59,8 +62,6 @@ export function AuthPage() {
   const handleGoogleSuccess = async (credentialResponse: {
     credential?: string;
   }) => {
-    console.log("Google credential response:", credentialResponse);
-
     setError("");
     setLoading(true);
 
@@ -68,8 +69,6 @@ export function AuthPage() {
       if (!credentialResponse.credential) {
         throw new Error("未收到 Google 登录凭证");
       }
-
-      console.log("Sending Google token to backend");
 
       const response = await post<{
         token: string;
@@ -82,8 +81,6 @@ export function AuthPage() {
       }>("/api/auth/google", {
         idToken: credentialResponse.credential,
       });
-
-      console.log("Backend auth response:", response);
 
       if (response.token) {
         setAuth(response.token, response.user);
@@ -166,62 +163,65 @@ export function AuthPage() {
               {error}
             </Alert>
           )}
-
-          <form onSubmit={handleSubmit}>
-            <TextField
-              fullWidth
-              label="电子邮箱"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              margin="normal"
-              required
-              variant="outlined"
-              sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
-            />
-            <TextField
-              fullWidth
-              label="密码"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              margin="normal"
-              required
-              inputProps={{ minLength: 6 }}
-              variant="outlined"
-              sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
-            />
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              disabled={loading}
-              sx={{
-                mt: 4,
-                mb: 2,
-                py: 1.5,
-                borderRadius: "12px",
-                background: "linear-gradient(135deg, #10B981 0%, #06B6D4 100%)",
-                fontWeight: "bold",
-                textTransform: "none",
-                fontSize: "1rem",
-                fontFamily: '"Poppins", sans-serif',
-                boxShadow: "0 4px 12px rgba(16, 185, 129, 0.2)",
-                "&:hover": {
-                  background:
-                    "linear-gradient(135deg, #059669 0%, #0891B2 100%)",
-                },
-              }}
-            >
-              {loading ? "处理中..." : isLogin ? "立即登录" : "确认注册"}
-            </Button>
-            <Box sx={{ mt: 3, display: "flex", justifyContent: "center" }}>
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={() => setError("Google 登录失败")}
+          {!isGoogleMode && (
+            <form onSubmit={handleSubmit}>
+              <TextField
+                fullWidth
+                label="电子邮箱"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                margin="normal"
+                required
+                variant="outlined"
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
               />
-            </Box>
-          </form>
+              <TextField
+                fullWidth
+                label="密码"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                margin="normal"
+                required
+                inputProps={{ minLength: 6 }}
+                variant="outlined"
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
+              />
+              <Button
+                type="submit"
+                fullWidth
+                variant="contained"
+                disabled={loading}
+                sx={{
+                  mt: 4,
+                  mb: 2,
+                  py: 1.5,
+                  borderRadius: "12px",
+                  background:
+                    "linear-gradient(135deg, #10B981 0%, #06B6D4 100%)",
+                  fontWeight: "bold",
+                  textTransform: "none",
+                  fontSize: "1rem",
+                  fontFamily: '"Poppins", sans-serif',
+                  boxShadow: "0 4px 12px rgba(16, 185, 129, 0.2)",
+                  "&:hover": {
+                    background:
+                      "linear-gradient(135deg, #059669 0%, #0891B2 100%)",
+                  },
+                }}
+              >
+                {loading ? "处理中..." : isLogin ? "立即登录" : "确认注册"}
+              </Button>
+            </form>
+          )}
+
+          <Box sx={{ mt: 3, display: "flex", justifyContent: "center" }}>
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => setError("Google 登录失败")}
+            />
+          </Box>
 
           <Button
             fullWidth

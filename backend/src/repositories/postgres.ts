@@ -35,11 +35,7 @@ class PostgresUserRepository implements UserRepository {
 
     if (!user) return null;
 
-    return {
-      id: user.id,
-      email: user.email,
-      passwordHash: user.passwordHash,
-    };
+    return toUserRecord(user);
   }
 
   async findById(id: string): Promise<UserRecord | null> {
@@ -49,11 +45,7 @@ class PostgresUserRepository implements UserRepository {
 
     if (!user) return null;
 
-    return {
-      id: user.id,
-      email: user.email,
-      passwordHash: user.passwordHash,
-    };
+    return toUserRecord(user);
   }
 
   async findByProvider(input: {
