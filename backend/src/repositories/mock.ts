@@ -19,14 +19,73 @@ class MockUserRepository implements UserRepository {
     return mockDb.users.find((user) => user.id === id) ?? null;
   }
 
+  async findByProvider(input: {
+    provider: string;
+    providerUserId: string;
+  }): Promise<UserRecord | null> {
+    return (
+      mockDb.users.find(
+        (user) =>
+          user.provider === input.provider &&
+          user.providerUserId === input.providerUserId,
+      ) ?? null
+    );
+  }
+
+  async upsertGoogleUser(input: {
+    email: string;
+    providerUserId: string;
+    name?: string | null;
+    avatarUrl?: string | null;
+  }): Promise<UserRecord> {
+    const existingByProvider = await this.findByProvider({
+      provider: "google",
+      providerUserId: input.providerUserId,
+    });
+
+    if (existingByProvider) {
+      existingByProvider.email = input.email;
+      existingByProvider.name = input.name ?? null;
+      existingByProvider.avatarUrl = input.avatarUrl ?? null;
+      return existingByProvider;
+    }
+
+    const existingByEmail = await this.findByEmail(input.email);
+
+    if (existingByEmail) {
+      existingByEmail.provider = "google";
+      existingByEmail.providerUserId = input.providerUserId;
+      existingByEmail.name = input.name ?? null;
+      existingByEmail.avatarUrl = input.avatarUrl ?? null;
+      return existingByEmail;
+    }
+
+    return this.create({
+      email: input.email,
+      passwordHash: null,
+      provider: "google",
+      providerUserId: input.providerUserId,
+      name: input.name ?? null,
+      avatarUrl: input.avatarUrl ?? null,
+    });
+  }
+
   async create(input: {
     email: string;
-    passwordHash: string;
+    passwordHash?: string | null;
+    provider?: string;
+    providerUserId?: string | null;
+    name?: string | null;
+    avatarUrl?: string | null;
   }): Promise<UserRecord> {
     const user = {
       id: randomUUID(),
       email: input.email,
-      passwordHash: input.passwordHash,
+      passwordHash: input.passwordHash ?? null,
+      provider: input.provider ?? "mock",
+      providerUserId: input.providerUserId ?? null,
+      name: input.name ?? null,
+      avatarUrl: input.avatarUrl ?? null,
     };
 
     mockDb.users.push(user);

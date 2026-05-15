@@ -4,11 +4,18 @@ import { z } from "zod";
 import { badRequest, unauthorized } from "../plugins/errorHandler.js";
 import { env } from "../config/env.js";
 import { repositories } from "../repositories/index.js";
+import { OAuth2Client } from "google-auth-library";
 
 const AuthSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
 });
+
+const GoogleAuthSchema = z.object({
+  idToken: z.string().min(1),
+});
+
+const googleClient = new OAuth2Client(env.GOOGLE_CLIENT_ID);
 
 export default async function authRoutes(fastify: FastifyInstance) {
   const mockAuthHandler = async (
@@ -24,6 +31,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     const { email, password } = result.data;
 
     let user = await repositories.users.findByEmail(email);
+    
     // m2 阶段：mock 模式下自动注册用户，方便前后端联调。
     if (!user) {
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -33,6 +41,10 @@ export default async function authRoutes(fastify: FastifyInstance) {
         passwordHash: hashedPassword,
       });
     } else {
+      if (!user.passwordHash) {
+        throw unauthorized("This account uses Google sign-in");
+      }
+
       const isMatch = await bcrypt.compare(password, user.passwordHash);
 
       if (!isMatch) {
@@ -55,10 +67,49 @@ export default async function authRoutes(fastify: FastifyInstance) {
     });
   };
 
-  const unsupportedAuthHandler = async () => {
-    throw badRequest(
-      "Current AUTH_MODE is not mock. Google auth will be implemented in a later milestone.",
-    );
+  const googleAuthHandler = async (
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ) => {
+    const result = GoogleAuthSchema.safeParse(request.body);
+
+    if (!result.success) {
+      throw badRequest("Invalid Google auth payload", result.error.flatten());
+    }
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken: result.data.idToken,
+      audience: env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+
+    if (!payload?.sub || !payload.email) {
+      throw unauthorized("Invalid Google token");
+    }
+
+    const user = await repositories.users.upsertGoogleUser({
+      email: payload.email,
+      providerUserId: payload.sub,
+      name: payload.name ?? null,
+      avatarUrl: payload.picture ?? null,
+    });
+
+    const token = fastify.jwt.sign({
+      id: user.id,
+      email: user.email,
+    });
+
+    return reply.status(200).send({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        avatarUrl: user.avatarUrl,
+      },
+    });
   };
 
   if (env.AUTH_MODE === "mock") {
@@ -71,9 +122,10 @@ export default async function authRoutes(fastify: FastifyInstance) {
     if (env.isDev()) {
       fastify.post("/dev/login", mockAuthHandler);
     }
-  } else {
-    fastify.post("/api/auth/register", unsupportedAuthHandler);
-    fastify.post("/api/auth/login", unsupportedAuthHandler);
+  }
+
+  if (env.AUTH_MODE === "google") {
+    fastify.post("/api/auth/google", googleAuthHandler);
   }
 
   fastify.get(

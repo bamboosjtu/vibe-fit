@@ -65,6 +65,8 @@ $env:BACKEND_SERVICE_ACCOUNT = "vibe-fit-backend-sa"
 $env:BACKEND_SERVICE_ACCOUNT_EMAIL = "${env:BACKEND_SERVICE_ACCOUNT}@${env:PROJECT_ID}.iam.gserviceaccount.com"
 
 $env:FRONTEND_URL = "https://vibe-fit-frontend-1085526549756.asia-east1.run.app"
+$env:GOOGLE_CLIENT_ID = "<your-google-client-id>"
+$env:JWT_SECRET_VALUE = "换成一个新的长随机字符串"
 ```
 
 # 1. 登录 Google Cloud
@@ -92,15 +94,13 @@ gcloud services enable secretmanager.googleapis.com
 # 4. 构建仓库
 
 ```powershell
+# 创建仓库
 gcloud artifacts repositories create $env:REPO `
   --repository-format=docker `
   --location=$env:REGION `
   --description="Vibe Fit container images"
-```
 
-# 5. 列出仓库
-
-```powershell
+# 查看仓库
 gcloud artifacts repositories list --location=asia-east1
 ```
 
@@ -109,7 +109,8 @@ gcloud artifacts repositories list --location=asia-east1
 ```powershell
 # 构建并发布到 Artifacts
 $env:FRONTEND_SERVICE = "vibe-fit-frontend"
-$env:FRONTEND_IMAGE = "$env:REGION-docker.pkg.dev/$env:PROJECT_ID/$env:REPO/$env:FRONTEND_SERVICE`:latest"
+$env:TAG = Get-Date -Format "yyyyMMddHHmmss"
+$env:FRONTEND_IMAGE = "$env:REGION-docker.pkg.dev/$env:PROJECT_ID/$env:REPO/$env:FRONTEND_SERVICE`:{$env:TAG}"
 
 gcloud builds submit --tag="$env:FRONTEND_IMAGE" .
 
@@ -117,6 +118,7 @@ gcloud builds submit --tag="$env:FRONTEND_IMAGE" .
 gcloud run deploy $env:FRONTEND_SERVICE `
   --image="$env:FRONTEND_IMAGE" `
   --region=$env:REGION `
+  --project=$env:PROJECT_ID `
   --allow-unauthenticated
 ```
 
@@ -125,7 +127,8 @@ gcloud run deploy $env:FRONTEND_SERVICE `
 ```powershell
 # 构建并发布到 Artifacts
 $env:BACKEND_SERVICE = "vibe-fit-backend-dev"
-$env:BACKEND_IMAGE = "$env:REGION-docker.pkg.dev/$env:PROJECT_ID/$env:REPO/$env:BACKEND_SERVICE`:latest"
+$env:TAG = Get-Date -Format "yyyyMMddHHmmss"
+$env:BACKEND_IMAGE = "$env:REGION-docker.pkg.dev/$env:PROJECT_ID/$env:REPO/$env:BACKEND_SERVICE`:{$env:TAG}"
 gcloud builds submit --tag="$env:BACKEND_IMAGE" .
 
 # 部署到 Cloud Run
@@ -137,8 +140,8 @@ gcloud run deploy $env:BACKEND_SERVICE `
   --port=8080 `
   --service-account=$env:BACKEND_SERVICE_ACCOUNT_EMAIL `
   --add-cloudsql-instances=$env:INSTANCE_CONNECTION_NAME `
-  --set-env-vars="NODE_ENV=production,AUTH_MODE=mock,DATA_MODE=postgres,JWT_SECRET=dev-only-cloud-run-secret,LOG_PRETTY=false,CORS_ORIGIN=$env:FRONTEND_URL" `
-  --set-secrets="DATABASE_URL=vibe-fit-database-url:latest"
+  --set-env-vars="NODE_ENV=production,AUTH_MODE=google,DATA_MODE=postgres,LOG_PRETTY=false,CORS_ORIGIN=$env:FRONTEND_URL,GOOGLE_CLIENT_ID=$env:GOOGLE_CLIENT_ID" `
+  --set-secrets="DATABASE_URL=vibe-fit-database-url:latest,JWT_SECRET=vibe-fit-jwt-secret:latest"
 
 # 失败看日志
 gcloud run services logs read $env:BACKEND_SERVICE `

@@ -1,10 +1,17 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+type AuthUser = {
+  id: string;
+  email: string;
+  name?: string | null;
+  avatarUrl?: string | null;
+};
+
 interface AuthState {
   token: string | null;
-  user: { id: string; email: string } | null;
-  setAuth: (token: string, user: { id: string; email: string }) => void;
+  user: AuthUser | null;
+  setAuth: (token: string, user: AuthUser) => void;
   logout: () => void;
   isAuthenticated: () => boolean;
 }
