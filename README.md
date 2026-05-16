@@ -70,10 +70,10 @@
 - [x] 第 4 阶段：加密保与登录。
   - 生产环境：直接集成 Google OAuth。
   - 开发环境：用 mock JWT / Firebase Emulator / 测试 OAuth client。
-- [ ] 第 5 阶段：加事件驱动，目标：Pub/Sub + Worker 跑通。
+- [x] 第 5 阶段：加事件驱动，目标：Pub/Sub + Worker 跑通。
   - 本地可用 EventEmitter 或 Redis 模拟 Pub/Sub。
   - 生产环境用 Google Pub/Sub + Worker。
-- [ ] 第 6 阶段：工程化，目标：CI/CD + 监控 + 告警 + runbook。
+- [x] 第 6 阶段：工程化，目标：CI/CD + 监控 + 告警 + runbook。
 
 ---
 
