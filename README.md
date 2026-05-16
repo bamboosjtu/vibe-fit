@@ -67,7 +67,7 @@
 - [x] 第 1 阶段：只部署前端
 - [x] 第 2 阶段：加后端：后端服务骨架 + API 契约 + Mock 数据 + Mock 登录 + 前后端联调
 - [x] 第 3 阶段：加数据库和密钥，目标：Cloud Run 后端能安全访问 Cloud SQL。
-- [ ] 第 4 阶段：加密保与登录。
+- [x] 第 4 阶段：加密保与登录。
   - 生产环境：直接集成 Google OAuth。
   - 开发环境：用 mock JWT / Firebase Emulator / 测试 OAuth client。
 - [ ] 第 5 阶段：加事件驱动，目标：Pub/Sub + Worker 跑通。
