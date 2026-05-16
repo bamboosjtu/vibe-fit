@@ -1,7 +1,11 @@
 export interface User {
   id: string;
   email: string;
-  passwordHash: string;
+  passwordHash: string | null;
+  provider?: string;
+  providerUserId?: string | null;
+  name?: string | null;
+  avatarUrl?: string | null;
 }
 
 export interface Settings {
@@ -29,5 +33,5 @@ export const mockDb = {
     this.plans.clear();
     this.sessions.clear();
     this.syncMeta.clear();
-  }
+  },
 };

@@ -1,7 +1,37 @@
 export interface UserRecord {
   id: string;
   email: string;
-  passwordHash: string;
+  passwordHash: string | null;
+  provider?: string;
+  providerUserId?: string | null;
+  name?: string | null;
+  avatarUrl?: string | null;
+}
+
+export interface UserRepository {
+  findByEmail(email: string): Promise<UserRecord | null>;
+  findById(id: string): Promise<UserRecord | null>;
+
+  create(input: {
+    email: string;
+    passwordHash?: string | null;
+    provider?: string;
+    providerUserId?: string | null;
+    name?: string | null;
+    avatarUrl?: string | null;
+  }): Promise<UserRecord>;
+
+  findByProvider(input: {
+    provider: string;
+    providerUserId: string;
+  }): Promise<UserRecord | null>;
+
+  upsertGoogleUser(input: {
+    email: string;
+    providerUserId: string;
+    name?: string | null;
+    avatarUrl?: string | null;
+  }): Promise<UserRecord>;
 }
 
 export interface BackupRecord {
@@ -10,12 +40,6 @@ export interface BackupRecord {
   deviceId?: string | null;
   payload: unknown;
   createdAt: string;
-}
-
-export interface UserRepository {
-  findByEmail(email: string): Promise<UserRecord | null>;
-  findById(id: string): Promise<UserRecord | null>;
-  create(input: { email: string; passwordHash: string }): Promise<UserRecord>;
 }
 
 export interface BackupRepository {

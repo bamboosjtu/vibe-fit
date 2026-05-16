@@ -1,6 +1,9 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { GoogleOAuthProvider } from '@react-oauth/google'
 import App from './App.tsx'
+
+const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 // 注册 PWA
 if ('serviceWorker' in navigator) {
@@ -17,6 +20,8 @@ if ('serviceWorker' in navigator) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <GoogleOAuthProvider clientId={googleClientId}>
+      <App />
+    </GoogleOAuthProvider>
   </StrictMode>,
 )

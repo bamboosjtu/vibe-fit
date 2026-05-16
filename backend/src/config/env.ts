@@ -55,6 +55,11 @@ const DATABASE_URL =
     ? getEnv("DATABASE_URL")
     : getOptionalEnv("DATABASE_URL", "");
 
+const GOOGLE_CLIENT_ID =
+  AUTH_MODE === "google"
+    ? getEnv("GOOGLE_CLIENT_ID")
+    : getOptionalEnv("GOOGLE_CLIENT_ID", "");
+
 export const env = {
   PORT,
   NODE_ENV,
@@ -67,6 +72,7 @@ export const env = {
   LOG_PRETTY: getOptionalEnv("LOG_PRETTY", "false") === "true",
 
   DATABASE_URL,
+  GOOGLE_CLIENT_ID,
 
   JWT_SECRET: isProduction
     ? getEnv("JWT_SECRET")

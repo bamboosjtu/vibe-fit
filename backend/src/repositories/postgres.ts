@@ -7,6 +7,26 @@ import type {
   UserRepository,
 } from "./types.js";
 
+function toUserRecord(user: {
+  id: string;
+  email: string;
+  passwordHash: string | null;
+  provider: string;
+  providerUserId: string | null;
+  name: string | null;
+  avatarUrl: string | null;
+}): UserRecord {
+  return {
+    id: user.id,
+    email: user.email,
+    passwordHash: user.passwordHash,
+    provider: user.provider,
+    providerUserId: user.providerUserId,
+    name: user.name,
+    avatarUrl: user.avatarUrl,
+  };
+}
+
 class PostgresUserRepository implements UserRepository {
   async findByEmail(email: string): Promise<UserRecord | null> {
     const user = await prisma.user.findUnique({
@@ -15,11 +35,7 @@ class PostgresUserRepository implements UserRepository {
 
     if (!user) return null;
 
-    return {
-      id: user.id,
-      email: user.email,
-      passwordHash: user.passwordHash,
-    };
+    return toUserRecord(user);
   }
 
   async findById(id: string): Promise<UserRecord | null> {
@@ -29,29 +45,102 @@ class PostgresUserRepository implements UserRepository {
 
     if (!user) return null;
 
-    return {
-      id: user.id,
-      email: user.email,
-      passwordHash: user.passwordHash,
-    };
+    return toUserRecord(user);
+  }
+
+  async findByProvider(input: {
+    provider: string;
+    providerUserId: string;
+  }): Promise<UserRecord | null> {
+    const user = await prisma.user.findUnique({
+      where: {
+        provider_providerUserId: {
+          provider: input.provider,
+          providerUserId: input.providerUserId,
+        },
+      },
+    });
+
+    if (!user) return null;
+
+    return toUserRecord(user);
+  }
+
+  async upsertGoogleUser(input: {
+    email: string;
+    providerUserId: string;
+    name?: string | null;
+    avatarUrl?: string | null;
+  }): Promise<UserRecord> {
+    const existingByProvider = await this.findByProvider({
+      provider: "google",
+      providerUserId: input.providerUserId,
+    });
+
+    if (existingByProvider) {
+      const user = await prisma.user.update({
+        where: { id: existingByProvider.id },
+        data: {
+          email: input.email,
+          name: input.name ?? null,
+          avatarUrl: input.avatarUrl ?? null,
+        },
+      });
+
+      return toUserRecord(user);
+    }
+
+    const existingByEmail = await this.findByEmail(input.email);
+
+    if (existingByEmail) {
+      const user = await prisma.user.update({
+        where: { id: existingByEmail.id },
+        data: {
+          provider: "google",
+          providerUserId: input.providerUserId,
+          name: input.name ?? null,
+          avatarUrl: input.avatarUrl ?? null,
+          passwordHash: existingByEmail.passwordHash,
+        },
+      });
+
+      return toUserRecord(user);
+    }
+
+    const user = await prisma.user.create({
+      data: {
+        email: input.email,
+        passwordHash: null,
+        provider: "google",
+        providerUserId: input.providerUserId,
+        name: input.name ?? null,
+        avatarUrl: input.avatarUrl ?? null,
+      },
+    });
+
+    return toUserRecord(user);
   }
 
   async create(input: {
     email: string;
-    passwordHash: string;
+    passwordHash?: string | null;
+    provider?: string;
+    providerUserId?: string | null;
+    name?: string | null;
+    avatarUrl?: string | null;
   }): Promise<UserRecord> {
     const user = await prisma.user.create({
       data: {
         email: input.email,
-        passwordHash: input.passwordHash,
+        passwordHash: input.passwordHash ?? null,
+        provider: input.provider ?? "mock",
+        providerUserId: input.providerUserId ?? null,
+        name: input.name ?? null,
+        avatarUrl: input.avatarUrl ?? null,
       },
     });
 
-    return {
-      id: user.id,
-      email: user.email,
-      passwordHash: user.passwordHash,
-    };
+    return toUserRecord(user);
   }
 }
 
