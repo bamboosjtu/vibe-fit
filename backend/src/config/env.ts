@@ -7,6 +7,7 @@ dotenv.config({ path: resolve(__dirname, "../../.env") });
 
 type AuthMode = "mock" | "google";
 type DataMode = "mock" | "postgres";
+type EventPublisherMode = "mock" | "pubsub";
 
 function getEnv(key: string, defaultValue?: string): string {
   const value = process.env[key] ?? defaultValue;
@@ -43,6 +44,11 @@ const isProduction = NODE_ENV === "production";
 
 const AUTH_MODE = getMode<AuthMode>("AUTH_MODE", ["mock", "google"], "mock");
 const DATA_MODE = getMode<DataMode>("DATA_MODE", ["mock", "postgres"], "mock");
+const EVENT_PUBLISHER = getMode<EventPublisherMode>(
+  "EVENT_PUBLISHER",
+  ["mock", "pubsub"],
+  "mock",
+);
 
 const PORT = Number.parseInt(getOptionalEnv("PORT", "8080"), 10);
 
@@ -60,12 +66,18 @@ const GOOGLE_CLIENT_ID =
     ? getEnv("GOOGLE_CLIENT_ID")
     : getOptionalEnv("GOOGLE_CLIENT_ID", "");
 
+const PUBSUB_TOPIC_BACKUP_CREATED =
+  EVENT_PUBLISHER === "pubsub"
+    ? getEnv("PUBSUB_TOPIC_BACKUP_CREATED")
+    : getOptionalEnv("PUBSUB_TOPIC_BACKUP_CREATED", "");
+
 export const env = {
   PORT,
   NODE_ENV,
 
   AUTH_MODE,
   DATA_MODE,
+  EVENT_PUBLISHER,
 
   CORS_ORIGIN: getOptionalEnv("CORS_ORIGIN", ""),
 
@@ -73,6 +85,7 @@ export const env = {
 
   DATABASE_URL,
   GOOGLE_CLIENT_ID,
+  PUBSUB_TOPIC_BACKUP_CREATED,
 
   JWT_SECRET: isProduction
     ? getEnv("JWT_SECRET")

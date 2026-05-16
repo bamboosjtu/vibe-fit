@@ -39,7 +39,7 @@ docker run --rm -p 8080:8080 `
 ```powershell
 npx prisma migrate reset --force
 npx prisma migrate dev --name init
-npm prisma migrate deploy
+npx prisma migrate deploy
 npx prisma migrate status
 
 npx prisma studio
@@ -57,14 +57,28 @@ $env:PROJECT_ID = "<your-gcp-project-id>"
 $env:REGION = "asia-east1"
 $env:REPO = "vibe-fit"
 
+$env:FRONTEND_SERVICE = "vibe-fit-frontend"
+$env:BACKEND_SERVICE = "vibe-fit-backend-dev"
+$env:WORKER_SERVICE = "vibe-fit-worker-dev"
+
+$env:FRONTEND_SERVICE_ACCOUNT = "vibe-fit-frontend-sa"
+$env:BACKEND_SERVICE_ACCOUNT = "vibe-fit-backend-sa"
+$env:WORKER_SERVICE_ACCOUNT = "vibe-fit-worker-sa"
+$env:PUBSUB_PUSH_SERVICE_ACCOUNT = "vibe-fit-pubsub-push-sa"
+
+$env:FRONTEND_SERVICE_ACCOUNT_EMAIL = "${env:FRONTEND_SERVICE_ACCOUNT}@${env:PROJECT_ID}.iam.gserviceaccount.com"
+$env:BACKEND_SERVICE_ACCOUNT_EMAIL = "${env:BACKEND_SERVICE_ACCOUNT}@${env:PROJECT_ID}.iam.gserviceaccount.com"
+$env:WORKER_SERVICE_ACCOUNT_EMAIL = "${env:WORKER_SERVICE_ACCOUNT}@${env:PROJECT_ID}.iam.gserviceaccount.com"
+$env:PUBSUB_PUSH_SERVICE_ACCOUNT_EMAIL = "${env:PUBSUB_PUSH_SERVICE_ACCOUNT}@${env:PROJECT_ID}.iam.gserviceaccount.com"
+
+$env:TOPIC_BACKUP_CREATED = "vibe-fit-backup-created"
+$env:SUBSCRIPTION_BACKUP_WORKER = "vibe-fit-backup-created-worker-sub"
+
 $env:INSTANCE_ID = "vibe-fit-postgres"
 $env:DB_NAME = "vibefit"
 $env:DB_USER = "vibefit_app"
 $env:DB_PASSWORD = "<your-strong-password>"
 $env:INSTANCE_CONNECTION_NAME = "${env:PROJECT_ID}:${env:REGION}:${env:INSTANCE_ID}"
-
-$env:BACKEND_SERVICE_ACCOUNT = "vibe-fit-backend-sa"
-$env:BACKEND_SERVICE_ACCOUNT_EMAIL = "${env:BACKEND_SERVICE_ACCOUNT}@${env:PROJECT_ID}.iam.gserviceaccount.com"
 
 $env:FRONTEND_URL = "https://vibe-fit-frontend-1085526549756.asia-east1.run.app"
 $env:GOOGLE_CLIENT_ID = "<your-google-client-id>"
@@ -91,6 +105,7 @@ gcloud services enable cloudbuild.googleapis.com
 gcloud services enable artifactregistry.googleapis.com
 gcloud services enable sqladmin.googleapis.com
 gcloud services enable secretmanager.googleapis.com
+gcloud services enable pubsub.googleapis.com
 ```
 
 # 4. 构建仓库
@@ -110,7 +125,6 @@ gcloud artifacts repositories list --location=asia-east1
 
 ```powershell
 # 构建并发布到 Artifacts
-$env:FRONTEND_SERVICE = "vibe-fit-frontend"
 $env:TAG = Get-Date -Format "yyyyMMddHHmmss"
 $env:FRONTEND_IMAGE = "${env:REGION}-docker.pkg.dev/${env:PROJECT_ID}/${env:REPO}/${env:FRONTEND_SERVICE}:${env:TAG}"
 
@@ -128,7 +142,6 @@ gcloud run deploy $env:FRONTEND_SERVICE `
 
 ```powershell
 # 构建并发布到 Artifacts
-$env:BACKEND_SERVICE = "vibe-fit-backend-dev"
 $env:TAG = Get-Date -Format "yyyyMMddHHmmss"
 $env:BACKEND_IMAGE = "${env:REGION}-docker.pkg.dev/${env:PROJECT_ID}/${env:REPO}/${env:BACKEND_SERVICE}:${env:TAG}"
 gcloud builds submit --tag="$env:BACKEND_IMAGE" .
@@ -149,5 +162,5 @@ gcloud run deploy $env:BACKEND_SERVICE `
 gcloud run services logs read $env:BACKEND_SERVICE `
   --region=$env:REGION `
   --project=$env:PROJECT_ID `
-  --limit=100 
+  --limit=100
 ```
