@@ -155,7 +155,7 @@ gcloud run deploy $env:BACKEND_SERVICE `
   --port=8080 `
   --service-account=$env:BACKEND_SERVICE_ACCOUNT_EMAIL `
   --add-cloudsql-instances=$env:INSTANCE_CONNECTION_NAME `
-  --set-env-vars="NODE_ENV=production,AUTH_MODE=google,DATA_MODE=postgres,LOG_PRETTY=false,CORS_ORIGIN=$env:FRONTEND_URL,GOOGLE_CLIENT_ID=$env:GOOGLE_CLIENT_ID" `
+  --set-env-vars="NODE_ENV=production,AUTH_MODE=google,DATA_MODE=postgres,LOG_PRETTY=false,CORS_ORIGIN=$env:FRONTEND_URL,GOOGLE_CLIENT_ID=$env:GOOGLE_CLIENT_ID,EVENT_PUBLISHER=pubsub,PUBSUB_TOPIC_BACKUP_CREATED=$env:TOPIC_BACKUP_CREATED" `
   --set-secrets="DATABASE_URL=vibe-fit-database-url:latest,JWT_SECRET=vibe-fit-jwt-secret:latest"
 
 # 失败看日志
@@ -163,4 +163,22 @@ gcloud run services logs read $env:BACKEND_SERVICE `
   --region=$env:REGION `
   --project=$env:PROJECT_ID `
   --limit=100
+```
+
+### 步骤4：部署worker
+
+Worker 和 API 用同一个镜像，但启动命令不同。
+
+```powershell
+gcloud run deploy $env:WORKER_SERVICE `
+  --image="$env:BACKEND_IMAGE" `
+  --region=$env:REGION `
+  --project=$env:PROJECT_ID `
+  --no-allow-unauthenticated `
+  --port=8080 `
+  --service-account=$env:WORKER_SERVICE_ACCOUNT_EMAIL `
+  --command="node" `
+  --args="dist/worker.js" `
+  --set-env-vars="NODE_ENV=production,AUTH_MODE=mock,DATA_MODE=mock,LOG_PRETTY=false,EVENT_PUBLISHER=mock" `
+  --set-secrets="JWT_SECRET=vibe-fit-jwt-secret:latest"
 ```
