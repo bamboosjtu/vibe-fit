@@ -1,6 +1,8 @@
 import type { FastifyInstance } from "fastify";
-import { badRequest } from "../plugins/errorHandler.js";
+import { badRequest, unauthorized } from "../plugins/errorHandler.js";
 import { repositories } from "../repositories/index.js";
+import { eventPublisher } from "../events/index.js";
+import { randomUUID } from "crypto";
 
 interface PushBody {
   schemaVersion: number;
@@ -41,16 +43,48 @@ export default async function syncRoutes(fastify: FastifyInstance) {
       );
     }
 
+    const dbUser = await repositories.users.findById(user.id);
+
+    if (!dbUser) {
+      throw unauthorized("User not found");
+    }
+
     const backup = await repositories.backups.create({
       userId: user.id,
       deviceId: body.deviceId,
       payload: body,
     });
 
+    let eventPublished = true;
+
+    try {
+      await eventPublisher.publishBackupCreated({
+        eventType: "backup.created",
+        eventVersion: 1,
+        eventId: randomUUID(),
+        occurredAt: new Date().toISOString(),
+        userId: user.id,
+        backupId: backup.id,
+        deviceId: body.deviceId ?? null,
+      });
+    } catch (err) {
+      eventPublished = false;
+
+      request.log.error(
+        {
+          err,
+          backupId: backup.id,
+          userId: user.id,
+        },
+        "Failed to publish backup.created",
+      );
+    }
+
     return reply.status(200).send({
       success: true,
       backupId: backup.id,
       syncedAt: backup.createdAt,
+      eventPublished,
       message: "Data synced successfully",
     });
   }
