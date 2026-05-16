@@ -1,0 +1,65 @@
+substitutions:
+  _REGION: asia-east1
+  _REPO: vibe-fit
+  _FRONTEND_SERVICE: vibe-fit-frontend
+  _FRONTEND_SERVICE_ACCOUNT: vibe-fit-frontend-sa@gen-lang-client-0642180192.iam.gserviceaccount.com
+  _VITE_API_BASE_URL: https://vibe-fit-backend-dev-1085526549756.asia-east1.run.app
+  _VITE_GOOGLE_CLIENT_ID: 1085526549756-tq6v0pr6n71n9nfthqpah8fvgc9j0aar.apps.googleusercontent.com
+  _VITE_AUTH_MODE: google
+
+steps:
+  - id: frontend-install
+    name: node:20-alpine
+    dir: frontend
+    entrypoint: sh
+    args:
+      - -c
+      - |
+        npm ci
+
+  - id: frontend-build-check
+    name: node:20-alpine
+    dir: frontend
+    entrypoint: sh
+    args:
+      - -c
+      - |
+        npm ci
+        npm run build
+
+  - id: build-frontend-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_FRONTEND_SERVICE}:${BUILD_ID}
+      - --build-arg
+      - VITE_API_BASE_URL=${_VITE_API_BASE_URL}
+      - --build-arg
+      - VITE_GOOGLE_CLIENT_ID=${_VITE_GOOGLE_CLIENT_ID}
+      - --build-arg
+      - VITE_AUTH_MODE=${_VITE_AUTH_MODE}
+      - frontend
+
+  - id: push-frontend-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_FRONTEND_SERVICE}:${BUILD_ID}
+
+  - id: deploy-frontend
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_FRONTEND_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_FRONTEND_SERVICE}:${BUILD_ID}
+      - --region=${_REGION}
+      - --project=$PROJECT_ID
+      - --allow-unauthenticated
+      - --port=80
+      - --service-account=${_FRONTEND_SERVICE_ACCOUNT}
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_FRONTEND_SERVICE}:${BUILD_ID}
