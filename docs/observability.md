@@ -1,15 +1,37 @@
 # 可观测性与监控
 
-## 基础监控点
+## 监控内容
 
+```
+基础监控：
 - backend 健康检查
 - worker 健康检查
 - 关键日志事件
 
-## 告警
-
+告警：
 - Backend 5xx
-- worker 5xx
-- pub/sub积压
+- Worker 5xx
+- Pub/Sub 积压
 - 事件发布失败
-- cloud sql 存储或连接异常
+- Cloud SQL 存储或连接异常
+```
+
+## 监控链路
+
+```
+Frontend
+  ↓
+Backend /api/auth/google
+  ↓
+Backend /api/backups
+  ↓
+Cloud SQL
+  ↓
+Pub/Sub Topic: vibe-fit-backup-created
+  ↓
+Subscription: vibe-fit-backup-created-worker-sub
+  ↓
+Worker /pubsub/backups
+  ↓
+204 ack
+```
