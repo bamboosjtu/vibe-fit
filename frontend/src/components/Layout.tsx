@@ -116,6 +116,7 @@ export function Layout({ children }: LayoutProps) {
               return (
                 <BottomNavigationAction
                   key={item.value}
+                  data-testid={`nav-${item.value.replace('/', '')}`}
                   label={
                     <Typography
                       sx={{

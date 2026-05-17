@@ -48,7 +48,7 @@ export function RestTimerOverlay() {
           {restTimer}s
         </Typography>
       </Box>
-      <IconButton size="small" onClick={stopRestTimer} sx={{ color: 'white' }}>
+      <IconButton data-testid="rest-timer-close-button" size="small" onClick={stopRestTimer} sx={{ color: 'white' }}>
         <CloseIcon fontSize="small" />
       </IconButton>
     </Paper>

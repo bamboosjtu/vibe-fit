@@ -59,6 +59,7 @@ export function ExerciseSelector({ open, onClose, onSelect }: ExerciseSelectorPr
       <DialogTitle>选择动作</DialogTitle>
       <DialogContent>
         <TextField
+          data-testid="exercise-search-input"
           fullWidth
           placeholder="搜索动作..."
           value={searchQuery}
@@ -91,7 +92,7 @@ export function ExerciseSelector({ open, onClose, onSelect }: ExerciseSelectorPr
           ) : (
             filteredExercises.map((exercise) => (
               <ListItem key={exercise.id} disablePadding>
-                <ListItemButton onClick={() => handleSelect(exercise)}>
+                <ListItemButton data-testid={`exercise-option-${exercise.id}`} onClick={() => handleSelect(exercise)}>
                   <ListItemText
                     primary={exercise.name}
                     secondary={exercise.muscleGroups?.join(', ')}

@@ -70,8 +70,9 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
   };
 
   return (
-    <Card 
-      sx={{ 
+    <Card
+      data-testid={`exercise-card-${sessionExercise.exerciseId}`}
+      sx={{
         mb: 1.5, 
         borderRadius: '16px', 
         boxShadow: '0 4px 20px rgba(16, 185, 129, 0.08)',
@@ -155,6 +156,7 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
             
             <Box sx={{ display: 'flex', gap: 1, mt: 1, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
               <Button
+                data-testid="copy-last-set-button"
                 size="small"
                 variant="outlined"
                 fullWidth
@@ -170,6 +172,7 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
                 复制上组
               </Button>
               <Button
+                data-testid="add-set-button"
                 size="small"
                 variant="outlined"
                 fullWidth
@@ -219,6 +222,7 @@ function SetRow({ set, onToggle, onUpdate, onDelete }: {
         {set.setNumber}
       </Typography>
       <TextField
+        data-testid={`set-${set.setNumber}-weight-input`}
         size="small"
         value={set.weight || ''}
         type="number"
@@ -227,6 +231,7 @@ function SetRow({ set, onToggle, onUpdate, onDelete }: {
         inputProps={{ style: { textAlign: 'center', fontWeight: 'bold' } }}
       />
       <TextField
+        data-testid={`set-${set.setNumber}-reps-input`}
         size="small"
         value={set.reps || ''}
         type="number"
@@ -235,7 +240,7 @@ function SetRow({ set, onToggle, onUpdate, onDelete }: {
         inputProps={{ style: { textAlign: 'center', fontWeight: 'bold' } }}
       />
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        <IconButton size="small" onClick={onToggle} sx={{ 
+        <IconButton data-testid={`set-${set.setNumber}-complete-button`} size="small" onClick={onToggle} sx={{
           width: 28, height: 28, 
           background: isCompleted ? 'linear-gradient(135deg, #10B981 0%, #06B6D4 100%)' : 'transparent',
           border: isCompleted ? 'none' : '2px solid #E5E7EB',

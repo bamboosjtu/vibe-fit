@@ -115,6 +115,7 @@ export function TrainingHeader({ trainingMode, onModeChange, dayName }: Training
           }}
         >
           <Tab
+            data-testid="training-mode-strength"
             value="strength"
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -125,6 +126,7 @@ export function TrainingHeader({ trainingMode, onModeChange, dayName }: Training
             sx={tabStyle(trainingMode === 'strength', '#10B981', '#06B6D4')}
           />
           <Tab
+            data-testid="training-mode-cardio"
             value="cardio"
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

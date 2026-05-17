@@ -70,6 +70,7 @@ export function TodayPage() {
         
         {activeSession && (
           <Button
+            data-testid="end-training-button"
             variant="contained"
             fullWidth
             onClick={handleEndTraining}

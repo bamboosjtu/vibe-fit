@@ -147,7 +147,6 @@ export function PlansPage() {
   const handleStartTraining = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    console.log('->开始训练日');
     if (!currentPlan) return;
     const currentIdx = currentPlan.currentDayIndex ?? 0;
     const todayDay = currentPlan.days[currentIdx];
@@ -248,6 +247,7 @@ export function PlansPage() {
         {/* 右侧图标 */}
         {status === 'today' ? (
           <IconButton 
+            data-testid="start-current-training-button"
             size="small" 
             sx={{ 
               color: 'primary.main',
@@ -549,6 +549,7 @@ export function PlansPage() {
         {TRAINING_TEMPLATES.map((template, index) => (
           <Card
             key={index}
+            data-testid={`template-card-${index}`}
             sx={{
               mb: 1.5,
               borderRadius: '16px',
@@ -644,7 +645,7 @@ export function PlansPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowApplyDialog(false)}>取消</Button>
-          <Button onClick={handleApplyTemplate} variant="contained">
+          <Button data-testid="apply-template-button" onClick={handleApplyTemplate} variant="contained">
             应用该计划
           </Button>
         </DialogActions>

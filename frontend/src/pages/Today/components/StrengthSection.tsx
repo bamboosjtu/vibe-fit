@@ -129,6 +129,7 @@ function GroupSection({ phaseId, group, onOpenGroupSelector }: {
       </Box>
       
       <Button
+        data-testid={`add-exercise-${group.id}`}
         variant="outlined"
         fullWidth
         startIcon={<AddIcon />}

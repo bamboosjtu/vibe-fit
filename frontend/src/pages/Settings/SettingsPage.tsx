@@ -288,6 +288,7 @@ export function SettingsPage() {
                     登录后即可开启云端备份，保护您的训练数据。
                   </Typography>
                   <Button
+                    data-testid="go-login-button"
                     fullWidth
                     variant="contained"
                     startIcon={<LoginIcon />}
@@ -424,6 +425,7 @@ export function SettingsPage() {
           >
             <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
               <Button
+                data-testid="export-data-button"
                 fullWidth
                 variant="outlined"
                 startIcon={<DownloadIcon />}
