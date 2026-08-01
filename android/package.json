@@ -1,0 +1,29 @@
+{
+  "name": "vibefit-android",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "VibeFit Android shell (Capacitor) - wraps the PWA frontend with native capabilities and local SQLite.",
+  "scripts": {
+    "build:web": "npm --prefix ../pwa/frontend run build",
+    "sync": "npm run build:web && cap sync android",
+    "sync:android": "cap sync android",
+    "open": "cap open android",
+    "add:android": "cap add android"
+  },
+  "dependencies": {
+    "@capacitor-community/sqlite": "^8.1.0",
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/filesystem": "^8.1.0",
+    "@capacitor/haptics": "^8.0.0",
+    "@capacitor/local-notifications": "^8.2.0",
+    "@capacitor/preferences": "^8.0.0",
+    "@capacitor/share": "^8.0.0",
+    "@capacitor/splash-screen": "^8.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.0",
+    "typescript": "^7.0.2"
+  }
+}
