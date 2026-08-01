@@ -24,6 +24,7 @@ interface SessionState {
   activeSession: TrainingSession | null;
   trainingTimer: number;
   restTimer: number;
+  restTimerExerciseId: string | null;
   isRestTimerActive: boolean;
   isLoading: boolean;
   initialized: boolean;
@@ -43,7 +44,7 @@ interface SessionState {
   
   // 计时器管理
   incrementTimer: () => void;
-  startRestTimer: (seconds: number) => void;
+  startRestTimer: (seconds: number, sessionExerciseId?: string) => void;
   decrementRestTimer: () => void;
   stopRestTimer: () => void;
   
@@ -70,6 +71,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   activeSession: null,
   trainingTimer: 0,
   restTimer: 0,
+  restTimerExerciseId: null,
   isRestTimerActive: false,
   isLoading: false,
   initialized: false,
@@ -199,13 +201,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
     await dbAddSession(completedSession);
     await deletePendingTraining();
-    set({ activeSession: null, trainingTimer: 0, restTimer: 0, isRestTimerActive: false });
+    set({ activeSession: null, trainingTimer: 0, restTimer: 0, restTimerExerciseId: null, isRestTimerActive: false });
     await get().loadSessions();
   },
 
   cancelSession: async () => {
     await deletePendingTraining();
-    set({ activeSession: null, trainingTimer: 0, restTimer: 0, isRestTimerActive: false });
+    set({ activeSession: null, trainingTimer: 0, restTimer: 0, restTimerExerciseId: null, isRestTimerActive: false });
   },
 
   clearActiveSession: () => {
@@ -218,21 +220,21 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
   },
 
-  startRestTimer: (seconds) => {
-    set({ restTimer: seconds, isRestTimerActive: true });
+  startRestTimer: (seconds, sessionExerciseId) => {
+    set({ restTimer: seconds, restTimerExerciseId: sessionExerciseId ?? null, isRestTimerActive: true });
   },
 
   decrementRestTimer: () => {
     set((state) => {
       if (state.restTimer <= 1) {
-        return { restTimer: 0, isRestTimerActive: false };
+        return { restTimer: 0, restTimerExerciseId: null, isRestTimerActive: false };
       }
       return { restTimer: state.restTimer - 1 };
     });
   },
 
   stopRestTimer: () => {
-    set({ restTimer: 0, isRestTimerActive: false });
+    set({ restTimer: 0, restTimerExerciseId: null, isRestTimerActive: false });
   },
 
   addExercise: (exercise, phaseId, groupId) => {

@@ -82,9 +82,11 @@ export function Layout({ children }: LayoutProps) {
             right: 0,
             zIndex: 1000,
             borderRadius: 0,
-            borderTop: 'none',
-            background: 'background.paper',
-            boxShadow: '0 -10px 32px rgba(15, 23, 42, 0.08)',
+            borderTop: '1px solid',
+            borderColor: 'divider',
+            background: 'rgba(255,255,255,0.98)',
+            backdropFilter: 'blur(18px)',
+            boxShadow: '0 -4px 16px rgba(15, 23, 42, 0.035)',
             pb: 'var(--safe-bottom)',
           }}
           elevation={0}
@@ -98,7 +100,7 @@ export function Layout({ children }: LayoutProps) {
               bgcolor: 'transparent',
               '& .MuiBottomNavigationAction-root': {
                 minWidth: 'auto',
-                padding: '8px 0',
+                padding: '9px 0 7px',
                 transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                 '&:hover': {
                   bgcolor: 'transparent',
@@ -112,14 +114,15 @@ export function Layout({ children }: LayoutProps) {
               return (
                 <BottomNavigationAction
                   key={item.value}
+                  disableRipple
                   data-testid={`nav-${item.value.replace('/', '')}`}
                   label={
                     <Typography
                       sx={{
                         fontFamily: 'var(--font-body)',
-                        fontSize: '0.72rem',
-                        fontWeight: isSelected ? 700 : 600,
-                        mt: 0.5,
+                        fontSize: '0.7rem',
+                        fontWeight: isSelected ? 800 : 500,
+                        mt: 0.4,
                         color: isSelected ? 'primary.main' : 'text.secondary',
                         transition: 'all 0.2s ease',
                       }}
@@ -137,50 +140,24 @@ export function Layout({ children }: LayoutProps) {
                         justifyContent: 'center',
                       }}
                     >
-                      {/* 选中状态背景 */}
-                      {isSelected && (
-                        <Box
-                          sx={{
-                            position: 'absolute',
-                            width: 42,
-                            height: 34,
-                            borderRadius: '10px',
-                            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.16) 0%, rgba(6, 182, 212, 0.12) 100%)',
-                            animation: 'scaleIn 0.2s ease-out',
-                          }}
-                        />
-                      )}
-                      
                       {/* 图标 */}
                       <Box
                         sx={{
                           color: isSelected ? 'primary.main' : 'text.secondary',
                           transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                          transform: isSelected ? 'scale(1.1)' : 'scale(1)',
+                          transform: isSelected ? 'translateY(-1px)' : 'none',
                           zIndex: 1,
                         }}
                       >
-                        <WorkoutIcon name={item.icon} size={24} />
+                        <WorkoutIcon name={item.icon} size={28} strokeWidth={2.2} />
                       </Box>
-                      
-                      {/* 选中指示器 */}
-                      {isSelected && (
-                        <Box
-                          sx={{
-                            position: 'absolute',
-                            bottom: -8,
-                            width: 4,
-                            height: 4,
-                            borderRadius: '50%',
-                            bgcolor: 'primary.main',
-                            animation: 'scaleIn 0.3s ease-out',
-                          }}
-                        />
-                      )}
                     </Box>
                   }
                   sx={{
                     color: 'text.secondary',
+                    '&.Mui-focusVisible': {
+                      outline: 'none',
+                    },
                     '&.Mui-selected': {
                       color: 'primary.main',
                     },

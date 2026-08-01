@@ -1,8 +1,8 @@
 :root {
   /* 清新运动风配色变量 */
-  --color-primary: #10B981;
-  --color-primary-light: #34D399;
-  --color-primary-dark: #059669;
+  --color-primary: #05A978;
+  --color-primary-light: #35C79B;
+  --color-primary-dark: #078763;
   --color-secondary: #06B6D4;
   --color-secondary-light: #22D3EE;
   --color-secondary-dark: #0891B2;
@@ -12,7 +12,7 @@
   --color-error: #EF4444;
   --color-info: #06B6D4;
   
-  --color-bg-light: #F8FAFC;
+  --color-bg-light: #FFFFFF;
   --color-bg-dark: #0B1220;
   --color-paper-light: #FFFFFF;
   --color-paper-dark: #1E293B;
@@ -26,7 +26,7 @@
   --color-border-dark: #334155;
   
   /* 渐变 */
-  --gradient-primary: linear-gradient(135deg, #10B981 0%, #06B6D4 100%);
+  --gradient-primary: linear-gradient(135deg, #05A978 0%, #08B685 100%);
   --gradient-primary-dark: linear-gradient(135deg, #34D399 0%, #22D3EE 100%);
   
   /* 阴影 */
@@ -58,7 +58,7 @@
   --space-5: 20px;
   --space-6: 24px;
   --bottom-nav-height: 76px;
-  --sticky-action-height: 82px;
+  --sticky-action-height: 72px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -130,16 +130,13 @@ button {
 }
 
 .vf-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(16, 185, 129, 0.28) transparent;
+  scrollbar-width: none;
 }
 
 .vf-scroll::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  display: none;
 }
 
-button:focus,
 button:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
@@ -228,6 +225,28 @@ select {
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+@keyframes todaySectionReveal {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

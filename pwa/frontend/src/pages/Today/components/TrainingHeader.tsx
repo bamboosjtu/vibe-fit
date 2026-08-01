@@ -1,6 +1,6 @@
-import { Box, Typography, Paper, Tabs, Tab } from '@mui/material';
-import { useSessionStore } from '../../../stores';
 import { useEffect } from 'react';
+import { Box, Paper, Tab, Tabs, Typography } from '@mui/material';
+import { useSessionStore } from '../../../stores';
 import { WorkoutIcon } from '../../../components/WorkoutArtwork';
 
 interface TrainingHeaderProps {
@@ -9,156 +9,145 @@ interface TrainingHeaderProps {
   dayName?: string;
 }
 
-export function TrainingHeader({ trainingMode, onModeChange, dayName }: TrainingHeaderProps) {
-  const { trainingTimer, incrementTimer } = useSessionStore();
+export function TrainingHeader({ trainingMode, onModeChange }: TrainingHeaderProps) {
+  const activeSession = useSessionStore(state => state.activeSession);
+  const trainingTimer = useSessionStore(state => state.trainingTimer);
+  const incrementTimer = useSessionStore(state => state.incrementTimer);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      incrementTimer();
-    }, 1000);
+    const interval = setInterval(incrementTimer, 1000);
     return () => clearInterval(interval);
   }, [incrementTimer]);
 
   const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return [hours, minutes, secs].map(value => value.toString().padStart(2, '0')).join(':');
   };
 
   return (
-    <Box sx={{ px: 2, pt: 'calc(var(--safe-top) + 14px)', pb: 1.5, bgcolor: 'background.default', flexShrink: 0 }}>
+    <Box
+      component="header"
+      sx={{
+        px: { xs: 2, sm: 3 },
+        pt: 'calc(var(--safe-top) + 16px)',
+        pb: 1.75,
+        bgcolor: 'background.default',
+        flexShrink: 0,
+      }}
+    >
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: '1fr auto 1fr',
+          gridTemplateColumns: 'minmax(82px, 1fr) auto minmax(104px, 1fr)',
           alignItems: 'center',
-          gap: 1.5,
-          mb: 2,
+          gap: 1,
+          minHeight: 56,
+          mb: 1.75,
         }}
       >
-        <Box sx={{ minWidth: 0 }}>
-          <Typography
-            variant="h5"
-            fontWeight="bold"
-            sx={{
-              fontFamily: 'var(--font-display)',
-              background: 'linear-gradient(135deg, #10B981 0%, #06B6D4 100%)',
-              backgroundClip: 'text',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              lineHeight: 1.2,
-              letterSpacing: 0,
-            }}
-          >
-            VibeFit
-          </Typography>
-
-          {dayName && (
-            <Typography
-              variant="caption"
-              sx={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 600,
-                color: 'text.secondary',
-                mt: 0.5,
-                display: 'block',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {dayName}
-            </Typography>
-          )}
-        </Box>
+        <Typography
+          component="div"
+          sx={{
+            color: '#079b70',
+            fontSize: { xs: '1.62rem', sm: '1.8rem' },
+            fontWeight: 900,
+            fontStyle: 'italic',
+            lineHeight: 1,
+            letterSpacing: '-0.055em',
+          }}
+        >
+          VibeFit
+        </Typography>
 
         <Typography
-          variant="h6"
+          component="h1"
           sx={{
-            fontFamily: 'var(--font-display)',
-            fontWeight: 800,
-            letterSpacing: 0,
             color: 'text.primary',
+            fontSize: { xs: '1.26rem', sm: '1.42rem' },
+            fontWeight: 900,
+            lineHeight: 1,
+            letterSpacing: '-0.02em',
             whiteSpace: 'nowrap',
           }}
         >
           今日训练
         </Typography>
 
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: 1,
-            minWidth: 0,
-          }}
-        >
-          <Box sx={{ color: 'primary.main' }}>
-            <WorkoutIcon name="timer" size={28} strokeWidth={2.4} />
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.85 }}>
+          <Box sx={{ color: activeSession ? '#37934b' : 'text.disabled', flexShrink: 0 }}>
+            <WorkoutIcon name="timer" size={31} strokeWidth={2.4} />
           </Box>
-          <Typography
-            variant="h6"
-            fontWeight="bold"
-            sx={{
-              fontFamily: 'var(--font-display)',
-              color: 'primary.main',
-              minWidth: '64px',
-              fontVariantNumeric: 'tabular-nums',
-            }}
-          >
-            {formatTime(trainingTimer)}
-          </Typography>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography
+              sx={{
+                color: activeSession ? '#078c66' : 'text.secondary',
+                fontSize: { xs: '0.98rem', sm: '1.08rem' },
+                fontWeight: 900,
+                lineHeight: 1.05,
+                fontVariantNumeric: 'tabular-nums',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {formatTime(trainingTimer)}
+            </Typography>
+            <Box sx={{ mt: 0.45, display: 'flex', alignItems: 'center', gap: 0.6 }}>
+              <Box
+                aria-hidden="true"
+                sx={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: '50%',
+                  bgcolor: activeSession ? '#05b784' : 'text.disabled',
+                }}
+              />
+              <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', lineHeight: 1 }}>
+                {activeSession ? '训练中' : '准备开始'}
+              </Typography>
+            </Box>
+          </Box>
         </Box>
       </Box>
 
-      <Paper 
-        sx={{ 
-          borderRadius: '10px',
+      <Paper
+        elevation={0}
+        sx={{
           overflow: 'hidden',
+          borderRadius: '7px',
           bgcolor: 'background.paper',
-          boxShadow: '0 10px 28px rgba(15, 23, 42, 0.08)',
           border: '1px solid',
           borderColor: 'divider',
+          boxShadow: '0 5px 13px rgba(15, 23, 42, 0.08)',
         }}
       >
         <Tabs
           value={trainingMode}
-          onChange={(_, v) => onModeChange(v)}
+          onChange={(_, value) => onModeChange(value)}
           variant="fullWidth"
           sx={{
-            minHeight: 44,
-            '& .MuiTabs-flexContainer': {
-              bgcolor: 'background.paper',
-              gap: '4px',
-              p: '4px',
-            },
-            '& .MuiTabs-indicator': {
-              display: 'none',
-            },
+            minHeight: 50,
+            '& .MuiTabs-flexContainer': { gap: 0 },
+            '& .MuiTabs-indicator': { display: 'none' },
           }}
         >
           <Tab
             data-testid="training-mode-strength"
             value="strength"
-            label={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <WorkoutIcon name="strength" size={20} />
-                <span>力量</span>
-              </Box>
-            }
-            sx={tabStyle(trainingMode === 'strength', '#10B981', '#06B6D4')}
+            disableRipple
+            icon={<WorkoutIcon name="strength" size={21} />}
+            iconPosition="start"
+            label="力量"
+            sx={tabStyle(trainingMode === 'strength')}
           />
           <Tab
             data-testid="training-mode-cardio"
             value="cardio"
-            label={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <WorkoutIcon name="cardio" size={20} />
-                <span>有氧</span>
-              </Box>
-            }
-            sx={tabStyle(trainingMode === 'cardio', '#059669', '#0891B2')}
+            disableRipple
+            icon={<WorkoutIcon name="cardio" size={21} />}
+            iconPosition="start"
+            label="有氧"
+            sx={tabStyle(trainingMode === 'cardio')}
           />
         </Tabs>
       </Paper>
@@ -166,22 +155,17 @@ export function TrainingHeader({ trainingMode, onModeChange, dayName }: Training
   );
 }
 
-const tabStyle = (isActive: boolean, color1: string, color2: string) => ({
-  py: 1.5,
-  minHeight: 44,
-  borderRadius: '8px',
-  bgcolor: isActive 
-    ? `linear-gradient(135deg, ${color1} 0%, ${color2} 100%) !important` 
-    : 'transparent',
-  fontWeight: isActive ? 700 : 600,
-  color: isActive ? '#ffffff' : 'text.secondary',
-  boxShadow: isActive 
-    ? `0 2px 8px ${color1}4D` 
-    : 'none',
-  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-  '&:hover': {
-    bgcolor: isActive 
-      ? `linear-gradient(135deg, ${color1} 0%, ${color2} 100%)` 
-      : 'rgba(16, 185, 129, 0.05)',
-  },
+const tabStyle = (isActive: boolean) => ({
+  minHeight: 50,
+  m: 0,
+  borderRadius: '6px',
+  backgroundColor: isActive ? '#06a878 !important' : 'transparent',
+  color: isActive ? '#fff !important' : 'text.secondary',
+  fontSize: '0.95rem',
+  fontWeight: 800,
+  letterSpacing: '0.02em',
+  boxShadow: isActive ? '0 3px 10px rgba(5, 169, 120, 0.24)' : 'none',
+  transition: 'background-color 180ms ease, color 180ms ease, box-shadow 180ms ease',
+  '& .MuiTab-iconWrapper': { mr: 1 },
+  '&:hover': { backgroundColor: isActive ? '#06986e !important' : 'rgba(5, 169, 120, 0.045)' },
 });

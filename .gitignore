@@ -39,6 +39,3 @@ pwa/backend/dist
 .env.*.production
 
 reference/
-
-# .playwright-test-results
-.playwright-cli/

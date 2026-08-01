@@ -4,9 +4,9 @@ import { createTheme } from '@mui/material/styles';
 const colors = {
   // 主色调 - 渐变绿
   primary: {
-    main: '#10B981',      // 翠绿色
-    light: '#34D399',     // 浅绿
-    dark: '#059669',      // 深绿
+    main: '#05A978',      // VibeFit 祖母绿
+    light: '#35C79B',     // 浅绿
+    dark: '#078763',      // 深绿
     contrastText: '#ffffff',
   },
   // 辅助色 - 清新蓝
@@ -39,7 +39,7 @@ const colors = {
   },
   // 背景色
   background: {
-    default: '#F8FAFC',   // 清爽移动端背景
+    default: '#FFFFFF',   // 训练记录纸式白底
     paper: '#FFFFFF',
   },
   // 文本色
@@ -111,7 +111,7 @@ export const lightTheme = createTheme({
         },
         body: {
           fontFamily: 'var(--font-body)',
-          backgroundColor: '#F8FAFC',
+            backgroundColor: '#FFFFFF',
         },
       },
     },

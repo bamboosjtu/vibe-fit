@@ -1,24 +1,24 @@
 import { useState } from 'react';
-import { 
-  Card, 
-  CardContent, 
-  Box, 
-  Typography, 
-  IconButton, 
-  TextField, 
+import {
+  Box,
   Button,
+  Card,
+  IconButton,
+  ListItemIcon,
+  ListItemText,
   Menu,
   MenuItem,
-  ListItemIcon,
-  ListItemText
+  TextField,
+  Typography,
 } from '@mui/material';
-import { 
-  ExpandMore as ChevronDownIcon, 
-  Check as CheckIcon,
-  ContentCopy as CopyIcon,
-  Add as AddIcon,
-  DeleteOutline as DeleteIcon,
-  MoreVert as MoreIcon
+import {
+  AddRounded as AddIcon,
+  CheckRounded as CheckIcon,
+  ContentCopyRounded as CopyIcon,
+  DeleteOutlineRounded as DeleteIcon,
+  ExpandMoreRounded as ExpandIcon,
+  MoreVertRounded as MoreIcon,
+  TimerOutlined as TimerIcon,
 } from '@mui/icons-material';
 import { useSessionStore } from '../../../stores';
 import type { SessionExercise, SetRecord } from '../../../types';
@@ -29,20 +29,25 @@ interface ExerciseCardProps {
 }
 
 export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
-  const { updateSet, addSet, toggleSetCompleted, deleteSet, removeExercise, startRestTimer } = useSessionStore();
+  const updateSet = useSessionStore(state => state.updateSet);
+  const addSet = useSessionStore(state => state.addSet);
+  const toggleSetCompleted = useSessionStore(state => state.toggleSetCompleted);
+  const removeExercise = useSessionStore(state => state.removeExercise);
+  const startRestTimer = useSessionStore(state => state.startRestTimer);
+  const restTimer = useSessionStore(state => state.restTimer);
+  const restTimerExerciseId = useSessionStore(state => state.restTimerExerciseId);
+  const isRestTimerActive = useSessionStore(state => state.isRestTimerActive);
+  const stopRestTimer = useSessionStore(state => state.stopRestTimer);
+
   const [isExpanded, setIsExpanded] = useState(true);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  
   const sets = sessionExercise.sets || [];
-
-  const handleToggleExpand = () => setIsExpanded(!isExpanded);
+  const completedCount = sets.filter(set => Boolean(set.completedAt)).length;
+  const showRestTimer = isRestTimerActive && restTimerExerciseId === sessionExercise.id;
 
   const handleSetToggle = (setId: string, completed: boolean) => {
     toggleSetCompleted(sessionExercise.id, setId);
-    if (!completed) {
-      // 如果是完成操作，开启休息计时器（默认60秒）
-      startRestTimer(60);
-    }
+    if (!completed) startRestTimer(75, sessionExercise.id);
   };
 
   const handleOpenMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -50,156 +55,202 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
     setAnchorEl(event.currentTarget);
   };
 
-  const handleCloseMenu = () => {
-    setAnchorEl(null);
-  };
-
   const handleDeleteExercise = () => {
     removeExercise(sessionExercise.id);
-    handleCloseMenu();
-  };
-
-  const getSummary = () => {
-    const completedCount = sets.filter(s => !!s.completedAt).length;
-    const totalCount = sets.length;
-    if (totalCount === 0) return '尚未记录';
-    if (completedCount === totalCount) {
-      const lastSet = sets[sets.length - 1];
-      return `完成：${lastSet.weight || 0}kg × ${lastSet.reps || 0}`;
-    }
-    return `已完成 ${completedCount} / ${totalCount} 组`;
+    setAnchorEl(null);
   };
 
   return (
     <Card
       data-testid={`exercise-card-${sessionExercise.exerciseId}`}
       sx={{
-        mb: 1.5,
-        borderRadius: '12px',
-        boxShadow: '0 12px 30px rgba(15, 23, 42, 0.07)',
+        mb: 0.75,
+        overflow: 'hidden',
+        borderRadius: '7px',
         border: '1px solid',
         borderColor: 'divider',
-        overflow: 'visible',
+        boxShadow: 'none',
+        '&:hover': { transform: 'none', boxShadow: 'none' },
       }}
     >
-      <CardContent sx={{ p: 1.5, pb: isExpanded ? 1.5 : 1 }}>
-        {/* Card Header */}
-        <Box
-          onClick={handleToggleExpand}
-          sx={{ display: 'flex', alignItems: 'center', gap: 1.5, cursor: 'pointer' }}
-        >
-          <Box sx={{ flexShrink: 0, color: 'text.primary' }}>
-            <ExerciseArtwork
-              exerciseId={sessionExercise.exerciseId}
-              exerciseName={sessionExercise.exerciseName}
-              type={sessionExercise.type}
-              size={64}
-            />
-          </Box>
+      <Box
+        onClick={() => setIsExpanded(value => !value)}
+        sx={{
+          minHeight: 70,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          px: 1.25,
+          py: 0.7,
+          cursor: 'pointer',
+          bgcolor: 'background.paper',
+        }}
+      >
+        <Box sx={{ width: 72, flexShrink: 0, display: 'grid', placeItems: 'center', color: 'text.primary' }}>
+          <ExerciseArtwork
+            exerciseId={sessionExercise.exerciseId}
+            exerciseName={sessionExercise.exerciseName}
+            type={sessionExercise.type}
+            size={68}
+          />
+        </Box>
 
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography variant="h6" fontWeight="bold" sx={{ fontSize: '1rem', fontFamily: 'var(--font-display)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {sessionExercise.exerciseName}
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              {getSummary()}
-            </Typography>
-          </Box>
-          
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <IconButton 
-              size="small" 
-              onClick={handleOpenMenu}
-              sx={{ color: 'text.secondary' }}
-            >
-              <MoreIcon fontSize="small" />
-            </IconButton>
-            <IconButton 
-              size="small" 
-              sx={{ 
-                transition: 'transform 0.2s ease',
-                transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography
+            sx={{
+              color: 'text.primary',
+              fontSize: '0.92rem',
+              fontWeight: 900,
+              lineHeight: 1.25,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {sessionExercise.exerciseName}
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.55 }}>
+            <Typography
+              component="span"
+              sx={{
+                px: 0.7,
+                py: 0.15,
+                borderRadius: '4px',
+                bgcolor: 'rgba(5,169,120,0.08)',
+                color: '#07966d',
+                fontSize: '0.67rem',
+                fontWeight: 700,
               }}
             >
-              <ChevronDownIcon />
-            </IconButton>
+              {getMuscleLabel(sessionExercise)}
+            </Typography>
+            <Typography sx={{ color: 'text.secondary', fontSize: '0.67rem' }}>
+              {completedCount}/{sets.length} 组
+            </Typography>
           </Box>
         </Box>
 
-        {/* Header Menu */}
-        <Menu
-          anchorEl={anchorEl}
-          open={Boolean(anchorEl)}
-          onClose={handleCloseMenu}
-          transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-          anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-        >
-          <MenuItem onClick={handleDeleteExercise} sx={{ color: 'error.main' }}>
-            <ListItemIcon>
-              <DeleteIcon fontSize="small" color="error" />
-            </ListItemIcon>
-            <ListItemText primary="删除该动作" />
-          </MenuItem>
-        </Menu>
+        <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+          <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 0.4, color: 'text.secondary', mr: 0.15 }}>
+            <TimerIcon sx={{ fontSize: 19 }} />
+            <Typography sx={{ fontSize: '0.72rem', whiteSpace: 'nowrap' }}>休息 75 秒</Typography>
+          </Box>
+          <IconButton size="small" onClick={handleOpenMenu} sx={{ color: 'text.secondary' }}>
+            <MoreIcon sx={{ fontSize: 20 }} />
+          </IconButton>
+          <ExpandIcon
+            sx={{
+              color: 'text.secondary',
+              fontSize: 22,
+              transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 180ms ease',
+            }}
+          />
+        </Box>
+      </Box>
 
-        {/* Sets Table */}
-        {isExpanded && (
-          <Box sx={{ mt: 1.25 }}>
-            <TableHeader />
-            {sets.map((set) => (
-              <SetRow 
-                key={set.id} 
-                set={set} 
-                onToggle={() => handleSetToggle(set.id, !!set.completedAt)}
-                onUpdate={(updates) => updateSet(sessionExercise.id, set.id, updates)}
-                onDelete={() => deleteSet(sessionExercise.id, set.id)}
-              />
-            ))}
-            
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mt: 1, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={() => setAnchorEl(null)}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+      >
+        <MenuItem onClick={handleDeleteExercise} sx={{ color: 'error.main' }}>
+          <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
+          <ListItemText primary="删除该动作" />
+        </MenuItem>
+      </Menu>
+
+      {isExpanded && (
+        <Box sx={{ px: 1.25, pb: 1.25, animation: 'todaySectionReveal 180ms ease-out' }}>
+          <Box sx={{ height: '1px', bgcolor: 'divider', mb: 0.4 }} />
+          <TableHeader />
+          {sets.map(set => (
+            <SetRow
+              key={set.id}
+              set={set}
+              onToggle={() => handleSetToggle(set.id, Boolean(set.completedAt))}
+              onUpdate={updates => updateSet(sessionExercise.id, set.id, updates)}
+            />
+          ))}
+
+          {showRestTimer && (
+            <Box
+              sx={{
+                mt: 0.75,
+                minHeight: 58,
+                display: 'grid',
+                gridTemplateColumns: '1fr auto 1fr',
+                alignItems: 'center',
+                gap: 1,
+                px: 1.4,
+                borderRadius: '7px',
+                bgcolor: 'rgba(5,169,120,0.07)',
+                color: '#078c66',
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.55 }}>
+                <TimerIcon sx={{ fontSize: 22 }} />
+                <Typography sx={{ fontSize: '0.82rem', fontWeight: 800 }}>休息中</Typography>
+              </Box>
+              <Typography sx={{ fontSize: '1.72rem', lineHeight: 1, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>
+                {formatRestTime(restTimer)}
+              </Typography>
               <Button
-                data-testid="copy-last-set-button"
-                size="small"
+                data-testid="rest-timer-close-button"
                 variant="outlined"
-                fullWidth
-                startIcon={<CopyIcon />}
-                onClick={() => {
-                   if (sets.length > 0) {
-                     const last = sets[sets.length-1];
-                     addSet(sessionExercise.id, { weight: last.weight, reps: last.reps });
-                   }
+                onClick={stopRestTimer}
+                sx={{
+                  justifySelf: 'end',
+                  minWidth: 66,
+                  minHeight: 36,
+                  borderWidth: '1px !important',
+                  borderColor: '#06a878',
+                  borderRadius: '6px',
+                  color: '#078c66',
+                  fontSize: '0.8rem',
                 }}
-                sx={actionButtonStyle}
               >
-                复制上组
-              </Button>
-              <Button
-                data-testid="add-set-button"
-                size="small"
-                variant="outlined"
-                fullWidth
-                startIcon={<AddIcon />}
-                onClick={() => addSet(sessionExercise.id, { weight: 0, reps: 12 })}
-                sx={actionButtonStyle}
-              >
-                添加组
+                跳过
               </Button>
             </Box>
+          )}
+
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.25, mt: 0.55 }}>
+            <Button
+              data-testid="copy-last-set-button"
+              size="small"
+              startIcon={<CopyIcon />}
+              onClick={() => {
+                const last = sets[sets.length - 1];
+                if (last) addSet(sessionExercise.id, { weight: last.weight, reps: last.reps });
+              }}
+              sx={actionButtonStyle}
+            >
+              复制上组
+            </Button>
+            <Button
+              data-testid="add-set-button"
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={() => addSet(sessionExercise.id, { weight: 0, reps: 12 })}
+              sx={actionButtonStyle}
+            >
+              添加组
+            </Button>
           </Box>
-        )}
-      </CardContent>
+        </Box>
+      )}
     </Card>
   );
 }
 
 function TableHeader() {
   return (
-    <Box sx={{ 
-      display: 'grid', gridTemplateColumns: '34px minmax(74px, 1fr) minmax(70px, 1fr) 54px 34px', gap: 0.5, mb: 0.75, px: 0.5, py: 0.5,
-      bgcolor: 'rgba(16, 185, 129, 0.06)', borderRadius: '8px'
-    }}>
-      {['组', '重量', '次数', '✓', ''].map((label, i) => (
-        <Typography key={i} variant="caption" sx={{ textAlign: 'center', fontWeight: 700, color: 'text.secondary', fontSize: '0.7rem' }}>
+    <Box sx={tableGridStyle}>
+      {['组', '重量 (kg)', '次数 (次)', '完成'].map(label => (
+        <Typography key={label} sx={{ color: 'text.secondary', textAlign: 'center', fontSize: '0.68rem', fontWeight: 700 }}>
           {label}
         </Typography>
       ))}
@@ -207,73 +258,123 @@ function TableHeader() {
   );
 }
 
-function SetRow({ set, onToggle, onUpdate, onDelete }: { 
-  set: SetRecord, 
-  onToggle: () => void, 
-  onUpdate: (u: Partial<SetRecord>) => void,
-  onDelete: () => void
+function SetRow({ set, onToggle, onUpdate }: {
+  set: SetRecord;
+  onToggle: () => void;
+  onUpdate: (updates: Partial<SetRecord>) => void;
 }) {
-  const isCompleted = !!set.completedAt;
+  const isCompleted = Boolean(set.completedAt);
+
   return (
-    <Box sx={{ 
-      display: 'grid', gridTemplateColumns: '34px minmax(74px, 1fr) minmax(70px, 1fr) 54px 34px', gap: 0.5, px: 0.5, py: 0.65, mb: 0.5,
-      bgcolor: isCompleted ? 'rgba(16, 185, 129, 0.08)' : 'transparent',
-      borderRadius: '8px', border: '1px solid', borderColor: isCompleted ? 'success.light' : 'divider',
-    }}>
-      <Typography sx={{ textAlign: 'center', fontWeight: 700, color: isCompleted ? 'success.main' : 'primary.main', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <Box
+      sx={{
+        ...tableGridStyle,
+        minHeight: 48,
+        py: 0.55,
+        borderTop: '1px solid',
+        borderColor: 'divider',
+        bgcolor: isCompleted ? 'rgba(5,169,120,0.055)' : 'transparent',
+        borderRadius: isCompleted ? '7px' : 0,
+      }}
+    >
+      <Box
+        sx={{
+          width: 30,
+          height: 30,
+          placeSelf: 'center',
+          display: 'grid',
+          placeItems: 'center',
+          borderRadius: '50%',
+          bgcolor: isCompleted ? '#05a978' : '#e8ebf0',
+          color: isCompleted ? '#fff' : 'text.secondary',
+          fontSize: '0.82rem',
+          fontWeight: 900,
+        }}
+      >
         {set.setNumber}
-      </Typography>
+      </Box>
       <TextField
         data-testid={`set-${set.setNumber}-weight-input`}
         size="small"
         value={set.weight || ''}
         type="number"
-        onChange={(e) => onUpdate({ weight: Number(e.target.value) })}
+        onChange={event => onUpdate({ weight: Number(event.target.value) })}
         sx={inputStyle(isCompleted)}
-        inputProps={{ style: { textAlign: 'center', fontWeight: 'bold' } }}
+        inputProps={{ 'aria-label': `第 ${set.setNumber} 组重量`, style: { textAlign: 'center', fontWeight: 800 } }}
       />
       <TextField
         data-testid={`set-${set.setNumber}-reps-input`}
         size="small"
         value={set.reps || ''}
         type="number"
-        onChange={(e) => onUpdate({ reps: Number(e.target.value) })}
+        onChange={event => onUpdate({ reps: Number(event.target.value) })}
         sx={inputStyle(isCompleted)}
-        inputProps={{ style: { textAlign: 'center', fontWeight: 'bold' } }}
+        inputProps={{ 'aria-label': `第 ${set.setNumber} 组次数`, style: { textAlign: 'center', fontWeight: 800 } }}
       />
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        <IconButton data-testid={`set-${set.setNumber}-complete-button`} size="small" onClick={onToggle} sx={{
-        width: 46, height: 34,
-        borderRadius: '8px',
-          background: isCompleted ? 'linear-gradient(135deg, #10B981 0%, #06B6D4 100%)' : 'transparent',
-          border: isCompleted ? 'none' : '2px solid #E5E7EB',
-          color: isCompleted ? 'white' : 'transparent',
-          '&:hover': { background: isCompleted ? 'linear-gradient(135deg, #059669 0%, #0891B2 100%)' : 'rgba(16, 185, 129, 0.1)' }
-        }}>
-          {isCompleted && <CheckIcon sx={{ fontSize: 20 }} />}
-        </IconButton>
-      </Box>
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        <IconButton size="small" onClick={onDelete} sx={{ color: 'text.disabled', '&:hover': { color: 'error.main' } }}>
-          <DeleteIcon sx={{ fontSize: 18 }} />
-        </IconButton>
-      </Box>
+      <IconButton
+        data-testid={`set-${set.setNumber}-complete-button`}
+        aria-label={`完成第 ${set.setNumber} 组`}
+        onClick={onToggle}
+        sx={{
+          width: 52,
+          height: 34,
+          placeSelf: 'center',
+          borderRadius: '6px',
+          bgcolor: isCompleted ? '#05a978' : 'transparent',
+          border: isCompleted ? '1px solid #05a978' : '1.5px solid #d7dbe2',
+          color: isCompleted ? '#fff' : 'transparent',
+          '&:hover': { bgcolor: isCompleted ? '#058f68' : 'rgba(5,169,120,0.05)' },
+        }}
+      >
+        {isCompleted && <CheckIcon sx={{ fontSize: 24 }} />}
+      </IconButton>
     </Box>
   );
 }
 
+function getMuscleLabel(exercise: SessionExercise) {
+  const value = `${exercise.exerciseId} ${exercise.exerciseName}`;
+  if (/胸|press|fly|push-up/i.test(value)) return '胸大肌';
+  if (/背|pull|row|划船|下拉|引体/i.test(value)) return '背阔肌';
+  if (/肩|raise|delt/i.test(value)) return '三角肌';
+  if (/弯举|curl|二头/i.test(value)) return '肱二头';
+  if (/三头|屈伸|pushdown/i.test(value)) return '肱三头';
+  if (/腿|蹲|squat|deadlift|臀/i.test(value)) return '下肢';
+  return '目标肌群';
+}
+
+function formatRestTime(seconds: number) {
+  const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const secs = (seconds % 60).toString().padStart(2, '0');
+  return `${minutes}:${secs}`;
+}
+
+const tableGridStyle = {
+  display: 'grid',
+  gridTemplateColumns: '36px minmax(64px, 1fr) minmax(62px, 1fr) 58px',
+  alignItems: 'center',
+  gap: 0.65,
+  px: 0.2,
+  py: 0.7,
+};
+
 const inputStyle = (isCompleted: boolean) => ({
+  minWidth: 0,
   '& .MuiOutlinedInput-root': {
-    borderRadius: '8px',
     height: 36,
-    bgcolor: isCompleted ? 'rgba(16, 185, 129, 0.05)' : 'background.paper',
-    fontSize: '0.875rem',
+    borderRadius: '6px',
+    bgcolor: isCompleted ? 'rgba(255,255,255,0.78)' : 'background.paper',
+    fontSize: '0.86rem',
+    '& fieldset': { borderWidth: '1px', borderColor: '#d8dce3' },
   },
-  '& input': { padding: '8px' },
+  '& input': { minWidth: 0, px: 0.5, py: 0.7 },
 });
 
 const actionButtonStyle = {
-  borderRadius: '8px', py: 0.85, borderWidth: 1.5, borderColor: 'primary.light', color: 'primary.main',
-  fontWeight: 800, fontSize: '0.75rem',
-  '&:hover': { borderWidth: 1.5, borderColor: 'primary.main', bgcolor: 'rgba(16, 185, 129, 0.05)' },
+  minHeight: 30,
+  px: 1,
+  color: 'text.secondary',
+  fontSize: '0.68rem',
+  fontWeight: 700,
+  '&:hover': { color: '#078c66', bgcolor: 'rgba(5,169,120,0.04)', boxShadow: 'none', transform: 'none' },
 };

@@ -2,6 +2,8 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import { initRepository } from './db/repository'
+import './index.css'
+import './App.css'
 
 // 启动引导：在渲染前完成仓储初始化。
 // - Web：惰性创建 DexieRepository（等价于无操作，幂等）。

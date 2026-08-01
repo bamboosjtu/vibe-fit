@@ -19,6 +19,10 @@ interface WorkoutIconProps {
 
 const exactArtworkMap: Record<string, ArtworkKind> = {
   'bench-press': 'press',
+  'machine-chest-press': 'press',
+  'incline-press': 'press',
+  'incline-machine-press': 'press',
+  'pec-deck': 'press',
   'incline-bench-press': 'press',
   'incline-dumbbell-press': 'press',
   'dumbbell-fly': 'press',
@@ -68,7 +72,7 @@ function inferArtworkKind({ exerciseId, exerciseName = '', type, muscleGroups = 
   return 'strength';
 }
 
-function strokeProps(strokeWidth = 5) {
+function strokeProps(strokeWidth = 3.2) {
   return {
     fill: 'none',
     stroke: 'currentColor',
@@ -92,57 +96,63 @@ export function ExerciseArtwork(props: ExerciseArtworkProps) {
       focusable="false"
       style={{ display: 'block' }}
     >
-      <rect x="4" y="4" width="88" height="88" rx="16" fill="rgba(16,185,129,0.08)" />
-      <g color="#111827">
+      <g color="#303741">
         {kind === 'press' && (
           <>
-            <path {...strokeProps()} d="M16 31h64M24 31v23M72 31v23M30 59h36M34 70h28" />
-            <path {...strokeProps(4)} d="M24 31h-8M80 31h-8M42 51l18 6M34 55l14-10" />
-            <circle cx="35" cy="43" r="5" fill="#10B981" />
-            <path {...strokeProps(4)} d="M35 48l7 10 10-4 8 10" />
+            <path {...strokeProps()} d="M14 25h68M21 25v12M75 25v12M29 60h42M34 72h28M37 60v12M65 60v12" />
+            <path {...strokeProps(2.6)} d="M21 25h-8M83 25h-8M28 22v6M68 22v6" />
+            <circle cx="34" cy="45" r="5" fill="#303741" />
+            <path {...strokeProps(3)} d="M39 47l18 8 12 5M38 51l9 7 11-8M45 57l-8 3M58 56l8 4" />
+            <path d="M42 48c5 0 9 2 12 5l-7 5-8-6Z" fill="#23b889" opacity="0.9" />
           </>
         )}
         {kind === 'pull' && (
           <>
-            <path {...strokeProps()} d="M24 18h48M31 18v28M65 18v28M37 48h22" />
-            <circle cx="48" cy="36" r="6" fill="#10B981" />
-            <path {...strokeProps(4)} d="M48 42v20M35 47l13 10 13-10M38 68h20" />
-            <path {...strokeProps(3)} d="M24 74h48" />
+            <path {...strokeProps()} d="M19 16h58M25 16v61M71 16v61M35 72h26M37 61h22" />
+            <circle cx="48" cy="34" r="5" fill="#303741" />
+            <path {...strokeProps(3)} d="M48 39v22M34 26l14 15 14-15M38 68h20M40 61l-8 11M56 61l8 11" />
+            <path d="M42 42c4-3 8-3 12 0v13H42Z" fill="#23b889" opacity="0.9" />
           </>
         )}
         {kind === 'row' && (
           <>
-            <path {...strokeProps()} d="M18 70h58M25 58h28M35 45h33M63 45l12 16" />
-            <circle cx="34" cy="39" r="5" fill="#10B981" />
-            <path {...strokeProps(4)} d="M36 44l18 10 15-12M39 57l-8 12M51 57l7 12" />
+            <path {...strokeProps()} d="M14 73h68M20 62h28M58 46h17M72 46l8 27" />
+            <circle cx="31" cy="38" r="5" fill="#303741" />
+            <path {...strokeProps(3)} d="M35 41l19 12 17-9M43 49l-8 14M53 54l8 18M35 63l-11 10" />
+            <path d="M38 43l14 9-6 7-13-12Z" fill="#23b889" opacity="0.9" />
           </>
         )}
         {kind === 'legs' && (
           <>
-            <path {...strokeProps()} d="M24 75h48M28 65h26M58 65h12M67 30v35M35 30h32" />
-            <circle cx="42" cy="30" r="6" fill="#10B981" />
-            <path {...strokeProps(4)} d="M42 36l10 17 15 12M49 50l-14 15M35 65l-8 10M67 65l6 10" />
+            <path {...strokeProps()} d="M19 76h61M62 20v56M35 24h27M22 63h27" />
+            <circle cx="40" cy="31" r="5" fill="#303741" />
+            <path {...strokeProps(3)} d="M42 36l10 15 14 12M50 48L36 61M36 61l-10 15M66 63l7 13M31 24h-8M67 24h8" />
+            <path d="m45 40 9 12-8 8-8-15Z" fill="#23b889" opacity="0.9" />
           </>
         )}
         {kind === 'shoulders' && (
           <>
-            <path {...strokeProps()} d="M20 30h56M24 30v12M72 30v12M32 54l16-14 16 14" />
-            <circle cx="48" cy="48" r="6" fill="#10B981" />
-            <path {...strokeProps(4)} d="M48 54v18M34 62l14-8 14 8M39 75h18" />
+            <path {...strokeProps()} d="M18 26h60M23 21v10M73 21v10M31 51l17-15 17 15" />
+            <circle cx="48" cy="47" r="5" fill="#303741" />
+            <path {...strokeProps(3)} d="M48 52v21M34 59l14-7 14 7M38 76h20" />
+            <circle cx="39" cy="57" r="5" fill="#23b889" opacity="0.9" />
+            <circle cx="57" cy="57" r="5" fill="#23b889" opacity="0.9" />
           </>
         )}
         {kind === 'arms' && (
           <>
-            <path {...strokeProps()} d="M22 68h52M30 54h22M38 42h28" />
-            <circle cx="34" cy="35" r="6" fill="#10B981" />
-            <path {...strokeProps(4)} d="M36 41l14 10 16-9M50 51l-8 17M58 51l9 17" />
+            <path {...strokeProps()} d="M18 73h60M25 61h30M42 49h28" />
+            <circle cx="33" cy="35" r="5" fill="#303741" />
+            <path {...strokeProps(3)} d="M36 40l15 10 17-9M50 50l-8 22M57 51l10 21M67 41l8-7" />
+            <path d="M46 44c5 0 8 2 10 6l-6 6-8-7Z" fill="#23b889" opacity="0.9" />
           </>
         )}
         {kind === 'core' && (
           <>
-            <path {...strokeProps()} d="M20 70h56M31 58h34" />
-            <circle cx="36" cy="43" r="6" fill="#10B981" />
-            <path {...strokeProps(4)} d="M41 45l18 6 14 17M35 49l-10 19M50 52l-7 16" />
+            <path {...strokeProps()} d="M17 72h64M28 61h38" />
+            <circle cx="34" cy="42" r="5" fill="#303741" />
+            <path {...strokeProps(3)} d="M39 44l20 8 15 18M34 48 23 70M50 50l-8 20" />
+            <path d="m42 46 13 5-4 10-14-6Z" fill="#23b889" opacity="0.9" />
           </>
         )}
         {kind === 'cardio' && (

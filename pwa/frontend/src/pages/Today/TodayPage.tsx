@@ -1,17 +1,22 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Box, Typography, Button, Paper } from '@mui/material';
-import { FitnessCenter as FitnessCenterIcon } from '@mui/icons-material';
+import {
+  Add as AddIcon,
+  FitnessCenter as FitnessCenterIcon,
+  PlayArrowRounded as PlayIcon,
+} from '@mui/icons-material';
 import { useSessionStore, usePlanStore } from '../../stores';
 import { ExerciseSelector } from '../../components/ExerciseSelector';
+import { WorkoutIcon } from '../../components/WorkoutArtwork';
 import { TrainingHeader } from './components/TrainingHeader';
 import { StrengthSection } from './components/StrengthSection';
 import { CardioSection } from './components/CardioSection';
-import { RestTimerOverlay } from './components/RestTimerOverlay';
 import type { TrainingDay, ExerciseGroup } from '../../types';
 
 export function TodayPage() {
   const activeSession = useSessionStore(state => state.activeSession);
   const endSession = useSessionStore(state => state.endSession);
+  const startSession = useSessionStore(state => state.startSession);
   const initSession = useSessionStore(state => state.initialize);
   const addExercise = useSessionStore(state => state.addExercise);
   const ensureSession = useSessionStore(state => state.ensureSession);
@@ -46,6 +51,20 @@ export function TodayPage() {
     setShowGroupSelector(true);
   };
 
+  const handleQuickAdd = () => {
+    const firstPhase = todayDay?.phases?.[0];
+    const firstGroup = firstPhase?.groups?.[0];
+    if (!firstPhase || !firstGroup) return;
+
+    ensureSession(currentPlan || undefined, todayDay || undefined);
+    handleOpenGroupSelector(firstPhase.id, firstGroup);
+  };
+
+  const handleStartTraining = () => {
+    if (!todayDay) return;
+    startSession(currentPlan || undefined, todayDay);
+  };
+
   if (!initialized) {
     return <LoadingState />;
   }
@@ -58,55 +77,110 @@ export function TodayPage() {
         dayName={todayDay?.name}
       />
 
-      <Box className="vf-scroll" sx={{ flex: 1, overflow: 'auto', px: 2, pb: activeSession ? 'calc(var(--sticky-action-height) + var(--safe-bottom) + 16px)' : 2 }}>
+      <Box
+        component="main"
+        className="vf-scroll"
+        sx={{
+          flex: 1,
+          overflow: 'auto',
+          px: { xs: 2, sm: 3 },
+          pb: 'calc(var(--sticky-action-height) + 18px)',
+        }}
+      >
         {trainingMode === 'strength' ? (
-          <StrengthSection 
-            todayDay={todayDay} 
-            onOpenGroupSelector={handleOpenGroupSelector} 
+          <StrengthSection
+            todayDay={todayDay}
+            currentPlan={currentPlan}
+            onOpenGroupSelector={handleOpenGroupSelector}
           />
         ) : (
           <CardioSection />
         )}
-        
       </Box>
 
-      {activeSession && (
-        <Paper
-          elevation={0}
+      <Paper
+        elevation={0}
+        sx={{
+          position: 'fixed',
+          left: 0,
+          right: 0,
+          bottom: 'calc(var(--bottom-nav-height) + var(--safe-bottom))',
+          zIndex: 900,
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 0.94fr) minmax(0, 1.06fr)',
+          gap: 1.25,
+          px: { xs: 2, sm: 3 },
+          py: 1.5,
+          bgcolor: 'rgba(255,255,255,0.96)',
+          backdropFilter: 'blur(18px)',
+          borderRadius: 0,
+          borderTop: '1px solid',
+          borderColor: 'divider',
+          boxShadow: '0 -8px 24px rgba(15, 23, 42, 0.045)',
+        }}
+      >
+        <Button
+          data-testid="quick-add-exercise-button"
+          variant="outlined"
+          startIcon={<AddIcon />}
+          onClick={handleQuickAdd}
+          disabled={!todayDay || trainingMode !== 'strength'}
           sx={{
-            position: 'fixed',
-            left: 0,
-            right: 0,
-            bottom: 'calc(var(--bottom-nav-height) + var(--safe-bottom))',
-            zIndex: 900,
-            p: 2,
-            bgcolor: 'background.paper',
-            borderRadius: 0,
-            borderTop: '1px solid',
+            minHeight: 48,
+            borderRadius: '8px',
+            borderWidth: '1px !important',
             borderColor: 'divider',
-            boxShadow: '0 -10px 30px rgba(15, 23, 42, 0.08)',
+            color: 'primary.main',
+            bgcolor: 'background.paper',
+            fontSize: '0.95rem',
+            fontWeight: 700,
+            boxShadow: '0 4px 12px rgba(15, 23, 42, 0.06)',
           }}
         >
+          添加动作
+        </Button>
+
+        {activeSession ? (
           <Button
             data-testid="end-training-button"
             variant="contained"
-            fullWidth
             onClick={handleEndTraining}
-            sx={{ 
-              py: 1.5,
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, #059669 0%, #10B981 52%, #06B6D4 100%)',
+            startIcon={<WorkoutIcon name="finish" size={21} />}
+            sx={{
+              minHeight: 48,
+              borderRadius: '8px',
+              bgcolor: '#05a978',
+              backgroundImage: 'none',
               fontWeight: 800,
-              fontSize: '1rem',
-              boxShadow: '0 12px 26px rgba(16, 185, 129, 0.26)',
+              fontSize: '0.95rem',
+              boxShadow: '0 7px 18px rgba(5, 169, 120, 0.22)',
+              '&:hover': { bgcolor: '#048f68', backgroundImage: 'none' },
             }}
           >
-            结束训练并记录
+            结束训练
           </Button>
-        </Paper>
-      )}
-
-      <RestTimerOverlay />
+        ) : (
+          <Button
+            data-testid="start-training-button"
+            variant="contained"
+            onClick={handleStartTraining}
+            disabled={!todayDay}
+            startIcon={<PlayIcon />}
+            sx={{
+              minHeight: 48,
+              borderRadius: '8px',
+              bgcolor: '#05a978',
+              backgroundImage: 'none',
+              fontWeight: 800,
+              fontSize: '0.95rem',
+              boxShadow: '0 7px 18px rgba(5, 169, 120, 0.22)',
+              '&:hover': { bgcolor: '#048f68', backgroundImage: 'none' },
+            }}
+          >
+            开始训练
+          </Button>
+        )}
+      </Paper>
 
       {selectedGroupContext && (
         <ExerciseSelector 
