@@ -87,6 +87,7 @@ services:
       AUTH_MODE: mock
       DATA_MODE: mock
       EVENT_PUBLISHER: mock
+      JWT_SECRET: dev-only-secret
       LOG_PRETTY: "false"
     depends_on:
       postgres:
