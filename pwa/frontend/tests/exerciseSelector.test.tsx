@@ -15,9 +15,10 @@ vi.mock('../src/components/ExerciseImage', () => ({
 }));
 
 // Mock @mui/icons-material：返回空组件，避免 EMFILE（MUI icons 包含数千个文件）
-vi.mock('@mui/icons-material', () => {
-  const React = require('react');
-  const Stub = (props: any) => React.createElement('span', { ...props, 'data-testid': 'mui-icon' });
+vi.mock('@mui/icons-material', async () => {
+  const React = await import('react');
+  const Stub: React.FC<React.HTMLAttributes<HTMLSpanElement>> = (props) =>
+    React.createElement('span', { ...props, 'data-testid': 'mui-icon' });
   // 列出 ExerciseSelector 实际使用的所有图标名
   return {
     Search: Stub,

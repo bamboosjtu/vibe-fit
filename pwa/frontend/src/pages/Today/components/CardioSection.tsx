@@ -8,6 +8,7 @@ import {
   TextField,
 } from '@mui/material';
 import {
+  AddRounded as AddIcon,
   PlayArrow as PlayIcon,
   Pause as PauseIcon,
   Check as CheckIcon,
@@ -237,19 +238,39 @@ function IdleState({
 }) {
   return (
     <>
-      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2, p: 2, bgcolor: 'rgba(16, 185, 129, 0.05)', borderRadius: '12px' }}>
-        <CardioInput label="目标时长(分钟)" value={targetMinutes} onChange={onTargetChange} />
-      </Box>
-      <Button
-        data-testid="cardio-start-button"
-        variant="contained"
-        fullWidth
-        startIcon={<PlayIcon />}
-        onClick={onStart}
-        sx={{ background: 'linear-gradient(135deg, #1F2937 0%, #374151 100%)', minHeight: 44 }}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'flex-end',
+          gap: 1.5,
+          mb: 2,
+          p: 1.5,
+          bgcolor: 'rgba(16, 185, 129, 0.05)',
+          borderRadius: '12px',
+        }}
       >
-        开始有氧
-      </Button>
+        <CardioInput label="目标时长(分钟)" value={targetMinutes} onChange={onTargetChange} />
+        <Button
+          data-testid="cardio-start-button"
+          variant="outlined"
+          fullWidth
+          startIcon={<AddIcon />}
+          onClick={onStart}
+          sx={{
+            flex: 1,
+            minHeight: 44,
+            borderWidth: '1px !important',
+            borderColor: 'rgba(5,169,120,0.36)',
+            borderRadius: '7px',
+            color: '#078c66',
+            bgcolor: 'rgba(5,169,120,0.035)',
+            fontSize: '0.85rem',
+            fontWeight: 800,
+          }}
+        >
+          开始有氧
+        </Button>
+      </Box>
     </>
   );
 }
