@@ -10,6 +10,8 @@
 #
 # 说明：本地部署默认使用邮箱验证码登录、postgres 数据库、本地 worker 事件处理，
 #       全部服务运行在本地 Docker，不依赖任何云服务。
+#       数据库 schema 固定为版本 1，由 backend 启动时通过 entrypoint 脚本执行
+#       prisma migrate deploy 初始化，无需独立迁移服务。
 
 services:
   postgres:
@@ -29,24 +31,14 @@ services:
       timeout: 5s
       retries: 10
 
-  # 一次性迁移服务：使用 builder 阶段（含 prisma CLI），执行完毕即退出
-  migrate:
-    build:
-      context: ./backend
-      target: builder
-    container_name: vibefit-migrate
-    environment:
-      DATABASE_URL: postgres://vibefit:vibefit_dev_password@postgres:5432/vibefit_dev
-    command: ["npx", "prisma", "migrate", "deploy"]
-    restart: "no"
-    depends_on:
-      postgres:
-        condition: service_healthy
-
   backend:
     build:
       context: ./backend
     container_name: vibefit-backend
+    # 从 backend/.env 加载 SMTP 等配置（由用户填写 163 邮箱凭据）。
+    # environment 段中的容器网络相关变量会覆盖 .env 中的同名项。
+    env_file:
+      ./backend/.env
     environment:
       NODE_ENV: production
       PORT: "8080"
@@ -58,29 +50,20 @@ services:
       CORS_ORIGIN: http://localhost:8081,http://localhost:8080,http://localhost:5173
       LOG_PRETTY: "false"
       WORKER_PUSH_URL: http://worker:8080/pubsub/backups
-      # ===== 邮箱验证码（163 邮箱）=====
-      # 部署前请填写以下 SMTP 配置，详见 pwa/docs/deployment.md
-      SMTP_HOST: ""
-      SMTP_PORT: "465"
-      SMTP_USER: ""
-      SMTP_PASS: ""
-      SMTP_FROM: ""
-      VERIFY_CODE_TTL_SECONDS: "300"
-      VERIFY_CODE_LENGTH: "6"
     ports:
       - "8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
 
   # 本地事件 worker：接收 backend 通过 HTTP push 推来的 backup.created 事件
+  # worker 使用 mock 数据模式，不连接数据库，故覆盖 entrypoint 直接启动 node
   worker:
     build:
       context: ./backend
     container_name: vibefit-worker
-    command: ["node", "dist/worker.js"]
+    entrypoint: ["node"]
+    command: ["dist/worker.js"]
     environment:
       NODE_ENV: production
       PORT: "8080"
@@ -92,8 +75,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
 
   frontend:
     build:

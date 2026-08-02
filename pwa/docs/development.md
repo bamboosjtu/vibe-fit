@@ -144,7 +144,7 @@ UI → Zustand store → Dexie (IndexedDB) → 返回 UI     # 全程不依赖�
     }
     ```
 
-> Google 登录链路（生产）见 [gcloud.md](./gcloud.md) 的 OAuth2 章节。
+> 历史的 Google 登录链路（已不在主流程使用）见 [gcloud.md](./gcloud.md) 的 OAuth2 章节。
 
 ## 4. 数据库设计
 
@@ -214,7 +214,8 @@ Vibe-Fit 采用离线优先（Offline-First）的设计模式。
 
 - `id` (Uuid)：主键
 - `email` (String)：唯一
-- `passwordHash` (String)：密码哈希
+- `name` (String?)：可选昵称
+- `avatarUrl` (String?)：可选头像 URL
 - `createdAt` (DateTime)
 - `updatedAt` (DateTime)
 
@@ -272,7 +273,6 @@ docker compose up -d --build
 
 ## 6. 测试
 
-- 前端单测：Vitest + Testing Library + jsdom，setup 在 `pwa/frontend/src/__tests__/setup.ts`，测试放在 `pwa/frontend/tests/`（`*.test.ts` / `*.test.tsx`）。
-- 前端 E2E：Playwright，覆盖四大页面与训练全流程。
+- 前端单测：Vitest + Testing Library + jsdom，setup 在 `pwa/frontend/src/__tests__/setup.ts`，测试放在 `pwa/frontend/tests/`（`*.test.ts` / `*.test.tsx`）。当前测试目录为空，测试基础设施已就绪待补。
 - 后端：暂未配置测试，改后端行为前先跑 `npm run typecheck` 与 `npm run build`。
 - 数据校验：导入/导出/同步 payload 全部走 `pwa/frontend/src/types/index.ts` 的 zod schema。

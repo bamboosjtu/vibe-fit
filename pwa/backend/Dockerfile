@@ -38,13 +38,17 @@ RUN npm ci
 # 在最终镜像里再生成一次 Prisma Client
 RUN npx prisma generate
 
-# 再删掉 devDependencies
+# 再删掉 devDependencies（prisma 已在 dependencies 中，保留用于 entrypoint 脚本）
 RUN npm prune --omit=dev && npm cache clean --force
 
 COPY --from=builder /app/dist ./dist
+
+# entrypoint 脚本：先执行 prisma migrate deploy 初始化 schema，再启动 server
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
 
 EXPOSE 8080
 
 USER node
 
-CMD ["node", "dist/server.js"]
+ENTRYPOINT ["./docker-entrypoint.sh"]

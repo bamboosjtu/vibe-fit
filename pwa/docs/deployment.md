@@ -16,7 +16,7 @@ VibeFit PWA 采用**本地 Docker 一体化部署**：前端、后端、worker�
 
 ```
 pwa/
-├── docker-compose.yml      # 编排：postgres + migrate + backend + worker + frontend
+├── docker-compose.yml      # 编排：postgres + backend + worker + frontend
 ├── frontend/Dockerfile     # 前端构建（Vite）+ nginx 静态服务
 └── backend/Dockerfile      # 后端构建（tsc）+ node 运行（backend 与 worker 共用镜像）
 ```
@@ -26,8 +26,7 @@ pwa/
 | 服务 | 作用 | 端口（宿主:容器） | 说明 |
 | --- | --- | --- | --- |
 | `postgres` | PostgreSQL 15 数据库 | 5432:5432 | 数据持久化到命名卷 `vibe_fit_pg_data` |
-| `migrate` | 一次性数据库迁移 | - | 执行 `prisma migrate deploy`，完成后退出 |
-| `backend` | Fastify API | 8080:8080 | 邮箱验证码登录 + postgres 数据；通过 HTTP push 把事件推给 worker |
+| `backend` | Fastify API | 8080:8080 | 启动时通过 entrypoint 脚本执行 `prisma migrate deploy` 初始化 schema（固定为版本 1），然后启动 server；邮箱验证码登录 + postgres 数据；通过 HTTP push 把事件推给 worker |
 | `worker` | 事件处理 worker | - | 接收 backend 推送的 `backup.created` 事件并记录日志 |
 | `frontend` | nginx 静态站点 | 8081:80 | 构建期注入 `VITE_API_BASE_URL` 指向后端 |
 
@@ -36,12 +35,12 @@ pwa/
 ```
 postgres（健康检查通过）
   ↓
-migrate（执行 prisma migrate deploy，完成后退出）
+backend（entrypoint 脚本执行 prisma migrate deploy 初始化 schema → 启动 server）
   ↓
-backend + worker（依赖 migrate 成功完成）
-  ↓
-frontend（依赖 backend）
+worker + frontend
 ```
+
+> 数据库 schema 固定为版本 1，由 backend 容器的 `docker-entrypoint.sh` 脚本在启动时执行 `prisma migrate deploy` 初始化。`prisma migrate deploy` 是幂等操作，已应用的迁移会自动跳过。不使用独立迁移服务。
 
 ## 部署步骤
 
@@ -58,20 +57,17 @@ frontend（依赖 backend）
 
 ### 2. 填写 SMTP 配置
 
-编辑 `pwa/docker-compose.yml`，在 `backend` 服务的 `environment` 段填入：
+编辑 `pwa/backend/.env`（由 `.env.example` 复制而来），填入 163 邮箱凭据。`docker-compose.yml` 的 `backend` 服务通过 `env_file: ./backend/.env` 自动加载这些配置：
 
-```yaml
-  backend:
-    environment:
-      # ... 其他配置 ...
-      SMTP_HOST: "smtp.163.com"
-      SMTP_PORT: "465"
-      SMTP_USER: "your_email@163.com"        # 你的 163 邮箱地址
-      SMTP_PASS: "你的163邮箱授权码"           # 第 1 步获取的授权码
-      SMTP_FROM: "your_email@163.com"         # 可选，默认用 SMTP_USER
+```env
+SMTP_HOST=smtp.163.com
+SMTP_PORT=465
+SMTP_USER=your_email@163.com        # 你的 163 邮箱地址
+SMTP_PASS=你的163邮箱授权码           # 第 1 步获取的授权码（不是登录密码）
+SMTP_FROM=your_email@163.com         # 可选，默认用 SMTP_USER
 ```
 
-> 也可不改 `docker-compose.yml`，而是把对应值写入 `pwa/backend/.env`（本地开发用）。但 Docker 部署以 `docker-compose.yml` 的 `environment` 为准。
+> `docker-compose.yml` 的 `environment` 段只保留容器网络相关变量（`DATABASE_URL`、`WORKER_PUSH_URL` 等），会覆盖 `.env` 中的同名项；SMTP 等配置由 `.env` 提供。这样本地 `npm run dev` 与 Docker 部署共用同一份 `.env`，避免配置分散。
 
 ### 3. 启动
 
@@ -82,7 +78,7 @@ cd pwa
 docker compose up -d --build
 ```
 
-首次启动会依次：构建镜像 → 启动 postgres → 健康检查通过 → 执行迁移 → 启动 backend + worker → 启动 frontend。
+首次启动会依次：构建镜像 → 启动 postgres → 健康检查通过 → 启动 backend（entrypoint 脚本执行 prisma migrate deploy 初始化 schema → 启动 server）→ 启动 worker + frontend。
 
 ### 4. 访问
 
@@ -120,9 +116,6 @@ docker compose down -v
 
 # 仅重新构建后端（含 worker，共用镜像）
 docker compose build backend && docker compose up -d backend worker
-
-# 手动执行迁移
-docker compose run --rm migrate
 ```
 
 ## 验证 worker 事件链路
@@ -157,16 +150,6 @@ mock 模式下 `POST /api/auth/send-code` 会把验证码直接放在响应的 `
 ### 端口被占用
 
 修改 `pwa/docker-compose.yml` 中对应服务的端口映射（如把 `8081:80` 改为 `8082:80`），并同步更新前端构建参数 `VITE_API_BASE_URL`。
-
-### migrate 服务失败
-
-migrate 是一次性服务，失败后不会自动重试。先查看日志：
-
-```bash
-docker compose logs migrate
-```
-
-修复后执行 `docker compose up -d --build migrate` 重跑，再启动 backend / worker。
 
 ### 前端无法访问后端
 

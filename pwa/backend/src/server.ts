@@ -59,7 +59,7 @@ async function start() {
 
     await fastify.register(errorHandlerPlugin);
     await fastify.register(healthzRoutes); // mounted at root to provide /health and /api/version
-    await fastify.register(authRoutes); // mounted at root to provide /dev/login and /api/me
+    await fastify.register(authRoutes); // mounted at root to provide /api/auth/send-code, /api/auth/verify-code and /api/me
     await fastify.register(syncRoutes); // mounted at root to provide /api/backups
 
     const address = await fastify.listen({
