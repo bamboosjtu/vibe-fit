@@ -10,6 +10,7 @@
  */
 
 import type { TrainingSession, TimerStatus, RestTimerState, CardioRecord } from '../types';
+import { toLocalISOString } from '../utils/helpers';
 
 /** 最大允许的恢复间隔（毫秒），超过则视为异常中断 */
 export const MAX_RESUME_GAP_MS = 4 * 60 * 60 * 1000; // 4 小时
@@ -110,7 +111,7 @@ export function checkpointTimer(
   session: Pick<TrainingSession, 'timerStatus' | 'elapsedSeconds' | 'runningSince'>,
   now: number = Date.now(),
 ): Pick<TrainingSession, 'timerStatus' | 'elapsedSeconds' | 'runningSince' | 'lastCheckpointAt'> {
-  const nowIso = new Date(now).toISOString();
+  const nowIso = toLocalISOString(now);
 
   if (session.timerStatus === 'running' && session.runningSince) {
     const additionalMs = now - new Date(session.runningSince).getTime();
@@ -138,7 +139,7 @@ export function pauseTimer(
   session: Pick<TrainingSession, 'timerStatus' | 'elapsedSeconds' | 'runningSince'>,
   now: number = Date.now(),
 ): Pick<TrainingSession, 'timerStatus' | 'elapsedSeconds' | 'runningSince' | 'lastCheckpointAt'> {
-  const nowIso = new Date(now).toISOString();
+  const nowIso = toLocalISOString(now);
 
   if (session.timerStatus === 'running' && session.runningSince) {
     const additionalMs = now - new Date(session.runningSince).getTime();
@@ -166,7 +167,7 @@ export function pauseTimer(
 export function continueTimer(
   now: number = Date.now(),
 ): Pick<TrainingSession, 'timerStatus' | 'elapsedSeconds' | 'runningSince' | 'lastCheckpointAt'> {
-  const nowIso = new Date(now).toISOString();
+  const nowIso = toLocalISOString(now);
   return {
     timerStatus: 'running',
     elapsedSeconds: 0, // 由调用者合并
@@ -184,7 +185,7 @@ export function endTimer(
 ): Pick<TrainingSession, 'timerStatus' | 'elapsedSeconds' | 'runningSince' | 'lastCheckpointAt'> & {
   endedAt: string;
 } {
-  const nowIso = new Date(now).toISOString();
+  const nowIso = toLocalISOString(now);
 
   if (session.timerStatus === 'running' && session.runningSince) {
     const additionalMs = now - new Date(session.runningSince).getTime();
@@ -219,7 +220,7 @@ export function continueAfterGap(
   session: Pick<TrainingSession, 'timerStatus' | 'elapsedSeconds' | 'runningSince' | 'lastCheckpointAt'>,
   now: number = Date.now(),
 ): Pick<TrainingSession, 'timerStatus' | 'elapsedSeconds' | 'runningSince' | 'lastCheckpointAt'> {
-  const nowIso = new Date(now).toISOString();
+  const nowIso = toLocalISOString(now);
 
   return {
     timerStatus: 'running',
@@ -237,7 +238,7 @@ export function endAtLastCheckpoint(
 ): Pick<TrainingSession, 'timerStatus' | 'elapsedSeconds' | 'runningSince' | 'lastCheckpointAt'> & {
   endedAt: string;
 } {
-  const endedAt = session.lastCheckpointAt || session.runningSince || new Date().toISOString();
+  const endedAt = session.lastCheckpointAt || session.runningSince || toLocalISOString(Date.now());
   return {
     timerStatus: 'completed',
     elapsedSeconds: session.elapsedSeconds ?? 0,
@@ -326,7 +327,7 @@ export function startRestTimerState(
     sessionExerciseId,
     durationSeconds,
     remainingSeconds: durationSeconds,
-    endsAt: new Date(now + durationSeconds * 1000).toISOString(),
+    endsAt: toLocalISOString(now + durationSeconds * 1000),
   };
 }
 
@@ -357,7 +358,7 @@ export function resumeRestTimerState(
   return {
     ...restTimer,
     status: 'running',
-    endsAt: new Date(now + restTimer.remainingSeconds * 1000).toISOString(),
+    endsAt: toLocalISOString(now + restTimer.remainingSeconds * 1000),
   };
 }
 
@@ -384,7 +385,7 @@ export function startCardioRecord(
   targetDurationSeconds?: number,
   now: number = Date.now(),
 ): CardioRecord {
-  const nowIso = new Date(now).toISOString();
+  const nowIso = toLocalISOString(now);
   return {
     status: 'running',
     startedAt: nowIso,
@@ -417,7 +418,7 @@ export function resumeCardioRecord(
   return {
     ...record,
     status: 'running',
-    runningSince: new Date(now).toISOString(),
+    runningSince: toLocalISOString(now),
   };
 }
 
@@ -431,7 +432,7 @@ export function completeCardioRecord(
     ...record,
     ...pauseCardioRecord(record, now),
     status: 'completed',
-    endedAt: new Date(now).toISOString(),
+    endedAt: toLocalISOString(now),
     ...metrics,
   };
 }

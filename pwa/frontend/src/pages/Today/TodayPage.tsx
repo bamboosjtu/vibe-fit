@@ -3,11 +3,11 @@ import { Box, Typography, Button, Paper, Dialog, DialogTitle, DialogContent, Dia
 import { WarningRounded } from '@mui/icons-material';
 import {
   Add as AddIcon,
-  FitnessCenter as FitnessCenterIcon,
   PlayArrowRounded as PlayIcon,
 } from '@mui/icons-material';
 import { useSessionStore, usePlanStore } from '../../stores';
 import { ExerciseSelector } from '../../components/ExerciseSelector';
+import { LoadingState } from '../../components/LoadingState';
 import { WorkoutIcon } from '../../components/WorkoutArtwork';
 import { TrainingHeader } from './components/TrainingHeader';
 import { TrainingContextCard } from './components/TrainingContextCard';
@@ -340,23 +340,6 @@ export function TodayPage() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
-  );
-}
-
-function LoadingState() {
-  return (
-    <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-      <Box sx={{
-          width: 48, height: 48, borderRadius: '12px',
-          background: 'linear-gradient(135deg, #10B981 0%, #06B6D4 100%)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2,
-          animation: 'pulse 2s infinite',
-        }}
-      >
-        <FitnessCenterIcon sx={{ color: 'white', fontSize: 24 }} />
-      </Box>
-      <Typography sx={{ color: 'text.secondary', fontWeight: 600 }}>加载中...</Typography>
     </Box>
   );
 }

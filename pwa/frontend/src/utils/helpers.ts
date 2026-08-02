@@ -5,9 +5,24 @@ export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
-// 获取当前ISO时间字符串
+// 将 Date 或时间戳转换为本地时区 ISO 字符串（带偏移，例如 2026-08-02T20:00:00.000+08:00）
+// 与 new Date().toISOString()（总是 UTC Z 后缀）不同，这里保留本地时区信息，
+// 便于直接阅读存储的时间。new Date() 解析两种格式得到同一时刻。
+export function toLocalISOString(date: Date | number): string {
+  const d = date instanceof Date ? date : new Date(date);
+  const tzOffset = -d.getTimezoneOffset(); // 分钟，东半球为正
+  const sign = tzOffset >= 0 ? '+' : '-';
+  const abs = Math.abs(tzOffset);
+  const offsetStr = `${sign}${String(Math.floor(abs / 60)).padStart(2, '0')}:${String(abs % 60).padStart(2, '0')}`;
+  // 用本地时间各字段拼出 YYYY-MM-DDTHH:mm:ss.sss
+  const pad = (n: number, len = 2) => String(n).padStart(len, '0');
+  const local = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
+  return `${local}${offsetStr}`;
+}
+
+// 获取当前本地时间 ISO 字符串
 export function getCurrentISOString(): string {
-  return new Date().toISOString();
+  return toLocalISOString(new Date());
 }
 
 // 格式化日期显示

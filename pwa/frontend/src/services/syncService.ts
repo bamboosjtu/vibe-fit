@@ -1,6 +1,7 @@
 import { post, get } from './apiClient';
 import { exportAllData, importAllData } from '../db';
 import { useAuthStore } from '../stores/authStore';
+import { getCurrentISOString } from '../utils/helpers';
 import type { ExportData } from '../types';
 
 export interface SyncStatus {
@@ -17,7 +18,7 @@ export async function syncPush() {
   
   const response = await post<{ success: boolean; syncedAt: string }>('/api/backups', {
     schemaVersion: data.settings?.schemaVersion || 1,
-    exportedAt: new Date().toISOString(),
+    exportedAt: getCurrentISOString(),
     appVersion: '1.0.0',
     settings: data.settings,
     plans: data.plans,

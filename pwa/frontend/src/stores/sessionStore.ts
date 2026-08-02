@@ -19,7 +19,7 @@ import {
   savePendingTraining,
   deletePendingTraining,
 } from '../db';
-import { generateId, getCurrentISOString } from '../utils/helpers';
+import { generateId, getCurrentISOString, toLocalISOString } from '../utils/helpers';
 import {
   checkpointTimer,
   pauseTimer,
@@ -54,8 +54,6 @@ interface SessionState {
   resumeSession: () => Promise<boolean>;
   ensureSession: (plan?: TrainingPlan, day?: TrainingDay) => TrainingSession;
   endSession: (notes?: string) => Promise<void>;
-  cancelSession: () => Promise<void>;
-  clearActiveSession: () => void;
 
   // 计时器管理
   pauseSession: () => void;
@@ -71,14 +69,11 @@ interface SessionState {
   // 动作管理
   addExercise: (exercise: Exercise, phaseId?: string, groupId?: string) => void;
   removeExercise: (sessionExerciseId: string) => void;
-  reorderExercises: (exerciseIds: string[]) => void;
 
   // 组记录管理
   addSet: (sessionExerciseId: string, setData: Partial<SetRecord>) => void;
   updateSet: (sessionExerciseId: string, setId: string, updates: Partial<SetRecord>) => void;
-  deleteSet: (sessionExerciseId: string, setId: string) => void;
   toggleSetCompleted: (sessionExerciseId: string, setId: string) => void;
-  copyLastSet: (sessionExerciseId: string) => void;
 
   // 有氧训练管理
   startCardio: (exercise: Exercise, targetDurationMinutes?: number) => void;
@@ -253,19 +248,6 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     await get().loadSessions();
   },
 
-  cancelSession: async () => {
-    await deletePendingTraining();
-    set({
-      activeSession: null,
-      staleSession: null,
-      restTimer: IDLE_REST_TIMER,
-    });
-  },
-
-  clearActiveSession: () => {
-    set({ activeSession: null });
-  },
-
   // ── 计时器管理 ──────────────────────────────────────────
 
   pauseSession: () => {
@@ -286,7 +268,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     if (!activeSession || activeSession.timerStatus !== 'paused') return;
 
     const now = Date.now();
-    const nowIso = new Date(now).toISOString();
+    const nowIso = toLocalISOString(now);
     set({
       activeSession: {
         ...activeSession,
@@ -412,24 +394,6 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     get()._persistPending();
   },
 
-  reorderExercises: (exerciseIds) => {
-    const { activeSession } = get();
-    if (!activeSession) return;
-
-    const reordered = exerciseIds
-      .map((id) => activeSession.exercises.find((e) => e.id === id))
-      .filter((e): e is SessionExercise => !!e)
-      .map((e, i) => ({ ...e, order: i }));
-
-    set((state) => ({
-      activeSession: state.activeSession ? {
-        ...state.activeSession,
-        exercises: reordered,
-      } : null,
-    }));
-    get()._persistPending();
-  },
-
   // ── 组记录管理 ──────────────────────────────────────────
 
   addSet: (sessionExerciseId, setData) => {
@@ -486,28 +450,6 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     get()._persistPending();
   },
 
-  deleteSet: (sessionExerciseId, setId) => {
-    const { activeSession } = get();
-    if (!activeSession) return;
-
-    set((state) => ({
-      activeSession: state.activeSession ? {
-        ...state.activeSession,
-        exercises: state.activeSession.exercises.map((e) =>
-          e.id === sessionExerciseId
-            ? {
-                ...e,
-                sets: e.sets
-                  .filter((s) => s.id !== setId)
-                  .map((s, i) => ({ ...s, setNumber: i + 1 })),
-              }
-            : e
-        ),
-      } : null,
-    }));
-    get()._persistPending();
-  },
-
   toggleSetCompleted: (sessionExerciseId, setId) => {
     const { activeSession } = get();
     if (!activeSession) return;
@@ -528,23 +470,6 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       } : null,
     }));
     get()._persistPending();
-  },
-
-  copyLastSet: (sessionExerciseId) => {
-    const { activeSession } = get();
-    if (!activeSession) return;
-
-    const exercise = activeSession.exercises.find((e) => e.id === sessionExerciseId);
-    if (!exercise || exercise.sets.length === 0) return;
-
-    const lastSet = exercise.sets[exercise.sets.length - 1];
-    get().addSet(sessionExerciseId, {
-      weight: lastSet.weight,
-      reps: lastSet.reps,
-      duration: lastSet.duration,
-      distance: lastSet.distance,
-      rpe: lastSet.rpe,
-    });
   },
 
   // ── 有氧训练管理（基于时间戳，与训练总计时相同模型） ───

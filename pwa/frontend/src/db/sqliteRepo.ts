@@ -17,6 +17,7 @@ import {
   SQLITE_DB_NAME,
   SQLITE_DB_VERSION,
 } from './sqliteSchema';
+import { getCurrentISOString } from '../utils/helpers';
 
 /**
  * Android 数据访问实现：基于 @capacitor-community/sqlite。
@@ -347,7 +348,7 @@ export class SqliteRepository implements DataRepository {
   async savePendingTraining(state: PendingTrainingState): Promise<void> {
     // payload 存完整 TrainingSession，updated_at 单独列；读取时合并 {...payload, updatedAt}
     const { updatedAt, ...session } = state;
-    const markedAt = new Date().toISOString();
+    const markedAt = getCurrentISOString();
     const conn = this.getConnection();
     await conn.run(
       `INSERT OR REPLACE INTO pending_training (id, plan_id, updated_at, payload) VALUES (?, ?, ?, ?)`,

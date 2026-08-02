@@ -26,6 +26,7 @@ import {
 } from '@mui/icons-material';
 import { usePlanStore, useSessionStore } from '../../stores';
 import { TRAINING_TEMPLATES } from '../../constants/templates';
+import { LoadingState } from '../../components/LoadingState';
 import type { TrainingPlan, TrainingDay } from '../../types';
 
 export function PlansPage() {
@@ -55,44 +56,7 @@ export function PlansPage() {
   }, [initialize, initializeSession]);
 
   if (!initialized) {
-    return (
-      <Box 
-        sx={{ 
-          p: 2,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100%',
-          bgcolor: 'background.default',
-        }}
-      >
-        <Box
-          sx={{
-            width: 48,
-            height: 48,
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, #10B981 0%, #06B6D4 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            mb: 2,
-            animation: 'pulse 2s infinite',
-          }}
-        >
-          <FitnessCenterIcon sx={{ color: 'white', fontSize: 24 }} />
-        </Box>
-        <Typography 
-          sx={{ 
-            color: 'text.secondary',
-            fontFamily: '"Nunito", sans-serif',
-            fontWeight: 600,
-          }}
-        >
-          加载中...
-        </Typography>
-      </Box>
-    );
+    return <LoadingState />;
   }
 
   const handleTemplateClick = (templateIndex: number) => {

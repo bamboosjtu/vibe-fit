@@ -20,7 +20,7 @@ import {
 import { Search as SearchIcon, ExpandMoreRounded as ExpandIcon } from '@mui/icons-material';
 import { DEFAULT_EXERCISES } from '../constants/exercises';
 import type { Exercise, ExerciseType, ExerciseGroup } from '../types';
-import { ExerciseArtwork } from './WorkoutArtwork';
+import { ExerciseImage } from './ExerciseImage';
 
 interface ExerciseSelectorProps {
   open: boolean;
@@ -219,12 +219,10 @@ function ExerciseOption({ exercise, onSelect }: { exercise: Exercise; onSelect: 
         onClick={() => onSelect(exercise)}
         sx={{ borderRadius: '12px', mb: 0.75, alignItems: 'center', gap: 1.25, py: 1 }}
       >
-        <Box sx={{ color: 'text.primary', flexShrink: 0 }}>
-          <ExerciseArtwork
-            exerciseId={exercise.id}
+        <Box sx={{ flexShrink: 0 }}>
+          <ExerciseImage
             exerciseName={exercise.name}
             type={exercise.type}
-            muscleGroups={exercise.muscleGroups}
             size={52}
           />
         </Box>

@@ -17,7 +17,7 @@ import {
 } from '@mui/icons-material';
 import { useSessionStore } from '../../../stores';
 import { DEFAULT_EXERCISES } from '../../../constants/exercises';
-import { ExerciseArtwork } from '../../../components/WorkoutArtwork';
+import { ExerciseImage } from '../../../components/ExerciseImage';
 import {
   computeCardioElapsedSeconds,
   formatTimer,
@@ -122,8 +122,8 @@ function CardioCard({ exercise, sessionExercise }: CardioCardProps) {
       <Box sx={{ p: 1.5 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Box sx={{ color: 'text.primary' }}>
-              <ExerciseArtwork exerciseId={exercise.id} exerciseName={exercise.name} type="cardio" size={64} />
+            <Box>
+              <ExerciseImage exerciseName={exercise.name} type="cardio" size={64} />
             </Box>
             <Box>
               <Typography variant="h6" fontWeight="bold" sx={{ fontFamily: 'var(--font-display)', fontSize: '1rem' }}>

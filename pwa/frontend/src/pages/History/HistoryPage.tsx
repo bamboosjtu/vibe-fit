@@ -22,6 +22,7 @@ import {
 import { useSessionStore, useSettingsStore } from '../../stores';
 import { formatTime, calculateSessionDuration, formatDuration } from '../../utils/helpers';
 import { formatTimer } from '../../domain/sessionTimer';
+import { LoadingState } from '../../components/LoadingState';
 import type { TrainingSession, SessionExercise } from '../../types';
 
 type SessionType = 'strength' | 'cardio' | 'mixed';
@@ -113,44 +114,7 @@ export function HistoryPage() {
   };
 
   if (!initialized) {
-    return (
-      <Box 
-        sx={{ 
-          p: 2,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100%',
-          bgcolor: 'background.default',
-        }}
-      >
-        <Box
-          sx={{
-            width: 48,
-            height: 48,
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, #10B981 0%, #06B6D4 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            mb: 2,
-            animation: 'pulse 2s infinite',
-          }}
-        >
-          <StrengthIcon sx={{ color: 'white', fontSize: 24 }} />
-        </Box>
-        <Typography 
-          sx={{ 
-            color: 'text.secondary',
-            fontFamily: '"Nunito", sans-serif',
-            fontWeight: 600,
-          }}
-        >
-          加载中...
-        </Typography>
-      </Box>
-    );
+    return <LoadingState />;
   }
 
   const handleViewDetail = (session: TrainingSession) => {

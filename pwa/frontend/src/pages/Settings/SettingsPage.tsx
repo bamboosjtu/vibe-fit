@@ -25,8 +25,9 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useSettingsStore, usePlanStore, useSessionStore, useAuthStore } from '../../stores';
 import { exportAllData, importAllData, clearAllData } from '../../db';
-import { downloadJSON, readJSONFile, validateExportData } from '../../utils/helpers';
+import { downloadJSON, readJSONFile, validateExportData, getCurrentISOString } from '../../utils/helpers';
 import { syncPush, syncPull, getSyncStatus } from '../../services/syncService';
+import { LoadingState } from '../../components/LoadingState';
 import type { ExportData } from '../../types';
 
 const APP_VERSION = '1.0.4';
@@ -67,50 +68,14 @@ export function SettingsPage() {
   }, [initSettings, fetchSyncStatus]);
 
   if (!initialized) {
-    return (
-      <Box 
-        sx={{ 
-          p: 2,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100%',
-          bgcolor: 'background.default',
-        }}
-      >
-        <Box
-          sx={{
-            width: 48,
-            height: 48,
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, #10B981 0%, #06B6D4 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            mb: 2,
-          }}
-        >
-          <SecurityIcon sx={{ color: 'white', fontSize: 24 }} />
-        </Box>
-        <Typography 
-          sx={{ 
-            color: 'text.secondary',
-            fontFamily: '"Nunito", sans-serif',
-            fontWeight: 600,
-          }}
-        >
-          加载中...
-        </Typography>
-      </Box>
-    );
+    return <LoadingState icon={<SecurityIcon sx={{ color: 'white', fontSize: 24 }} />} />;
   }
 
   const handleExport = async () => {
     const data = await exportAllData();
     const exportData: ExportData = {
       schemaVersion: 1,
-      exportedAt: new Date().toISOString(),
+      exportedAt: getCurrentISOString(),
       appVersion: APP_VERSION,
       settings: data.settings || {
         weightUnit: 'kg',
@@ -123,7 +88,7 @@ export function SettingsPage() {
       exercises: data.exercises,
     };
 
-    const filename = `vibefit-backup-${new Date().toISOString().split('T')[0]}.json`;
+    const filename = `vibefit-backup-${getCurrentISOString().split('T')[0]}.json`;
     downloadJSON(exportData, filename);
   };
 

@@ -1,4 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// 让 toLocalISOString 在测试中退化为 UTC ISO，保持测试期望与原有 .toISOString() 一致
+vi.mock('../src/utils/helpers', () => ({
+  toLocalISOString: (date: Date | number) => new Date(date).toISOString(),
+  getCurrentISOString: () => new Date().toISOString(),
+}));
+
 import {
   computeElapsedSeconds,
   formatTimer,

@@ -4,6 +4,7 @@ import type {
   TrainingPlan,
   TrainingSession,
 } from '../types';
+import { getCurrentISOString } from '../utils/helpers';
 import { db, type PendingTrainingState } from './index';
 import type { DataRepository, ExportSnapshot, ImportPayload } from './repository';
 
@@ -114,7 +115,7 @@ export class DexieRepository implements DataRepository {
 
   // 未完成训练
   async savePendingTraining(state: PendingTrainingState): Promise<void> {
-    await db.pendingTraining.put({ ...state, updatedAt: new Date().toISOString() });
+    await db.pendingTraining.put({ ...state, updatedAt: getCurrentISOString() });
   }
 
   async getPendingTraining(): Promise<PendingTrainingState | undefined> {

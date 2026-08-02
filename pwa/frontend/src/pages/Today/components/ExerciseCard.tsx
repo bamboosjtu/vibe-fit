@@ -23,7 +23,7 @@ import {
 import { useSessionStore } from '../../../stores';
 import type { SessionExercise, SetRecord } from '../../../types';
 import { DEFAULT_STRENGTH_REST_SECONDS } from '../../../types';
-import { ExerciseArtwork } from '../../../components/WorkoutArtwork';
+import { ExerciseImage } from '../../../components/ExerciseImage';
 import {
   computeRestRemaining,
   formatRestTime,
@@ -119,9 +119,8 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
           bgcolor: 'background.paper',
         }}
       >
-        <Box sx={{ width: 72, flexShrink: 0, display: 'grid', placeItems: 'center', color: 'text.primary' }}>
-          <ExerciseArtwork
-            exerciseId={sessionExercise.exerciseId}
+        <Box sx={{ width: 72, flexShrink: 0, display: 'grid', placeItems: 'center' }}>
+          <ExerciseImage
             exerciseName={sessionExercise.exerciseName}
             type={sessionExercise.type}
             size={68}

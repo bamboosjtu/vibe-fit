@@ -23,7 +23,8 @@ vi.mock('../src/db', () => dbMocks);
 
 vi.mock('../src/utils/helpers', () => ({
   generateId: vi.fn(() => 'test-id-' + Math.random().toString(36).slice(2, 8)),
-  getCurrentISOString: vi.fn(() => MOCK_NOW_ISO),
+  getCurrentISOString: vi.fn(() => new Date().toISOString()),
+  toLocalISOString: vi.fn((date: Date | number) => new Date(date).toISOString()),
 }));
 
 import { useSessionStore } from '../src/stores/sessionStore';
@@ -378,19 +379,6 @@ describe('endSession', () => {
 
     const saved = dbMocks.addSession.mock.calls[0][0] as TrainingSession;
     expect(saved.elapsedSeconds).toBe(pausedElapsed);
-  });
-});
-
-describe('cancelSession', () => {
-  it('直接删除 pending，不写入历史', async () => {
-    const store = useSessionStore.getState();
-    store.startSession();
-
-    await store.cancelSession();
-
-    expect(dbMocks.addSession).not.toHaveBeenCalled();
-    expect(dbMocks.deletePendingTraining).toHaveBeenCalled();
-    expect(useSessionStore.getState().activeSession).toBeNull();
   });
 });
 
