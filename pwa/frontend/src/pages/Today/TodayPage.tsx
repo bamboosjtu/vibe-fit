@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Box, Typography, Button, Paper } from '@mui/material';
+import { Box, Typography, Button, Paper, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { WarningRounded } from '@mui/icons-material';
 import {
   Add as AddIcon,
   FitnessCenter as FitnessCenterIcon,
@@ -25,6 +26,9 @@ export function TodayPage() {
   const addExercise = useSessionStore(state => state.addExercise);
   const ensureSession = useSessionStore(state => state.ensureSession);
   const checkpointSession = useSessionStore(state => state.checkpointSession);
+  const hasActiveCardio = useSessionStore(state => state.hasActiveCardio);
+  const completeCardio = useSessionStore(state => state.completeCardio);
+  const cancelCardio = useSessionStore(state => state.cancelCardio);
 
   const { currentPlan, initialize: initPlan, advanceToNextDay } = usePlanStore();
 
@@ -32,6 +36,7 @@ export function TodayPage() {
   const [showGroupSelector, setShowGroupSelector] = useState(false);
   const [selectedGroupContext, setSelectedGroupContext] = useState<{ phaseId: string, group: ExerciseGroup } | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const [showCardioEndDialog, setShowCardioEndDialog] = useState(false);
 
   // 使用 ref 保持最新的 checkpoint 函数引用，避免 effect 频繁重建
   const checkpointRef = useRef(checkpointSession);
@@ -80,10 +85,43 @@ export function TodayPage() {
   }, [currentPlan]);
 
   const handleEndTraining = async () => {
+    // 检测是否存在 running 或 paused 的有氧记录
+    if (hasActiveCardio()) {
+      setShowCardioEndDialog(true);
+      return;
+    }
+    await doEndSession();
+  };
+
+  const doEndSession = async () => {
     await endSession();
     if (currentPlan) {
       await advanceToNextDay(currentPlan.id);
     }
+  };
+
+  const handleCompleteCardioAndEnd = async () => {
+    // 完成所有进行中的有氧记录
+    const cardioExercises = activeSession?.exercises.filter(
+      (e) => e.cardioRecord?.status === 'running' || e.cardioRecord?.status === 'paused',
+    ) ?? [];
+    for (const ex of cardioExercises) {
+      completeCardio(ex.id);
+    }
+    setShowCardioEndDialog(false);
+    await doEndSession();
+  };
+
+  const handleDiscardCardioAndEnd = async () => {
+    // 放弃所有进行中的有氧记录
+    const cardioExercises = activeSession?.exercises.filter(
+      (e) => e.cardioRecord?.status === 'running' || e.cardioRecord?.status === 'paused',
+    ) ?? [];
+    for (const ex of cardioExercises) {
+      cancelCardio(ex.id);
+    }
+    setShowCardioEndDialog(false);
+    await doEndSession();
   };
 
   const handleOpenGroupSelector = (phaseId: string, group: ExerciseGroup) => {
@@ -247,6 +285,54 @@ export function TodayPage() {
       )}
 
       <SessionRecoveryDialog />
+
+      <Dialog
+        open={showCardioEndDialog}
+        onClose={(_, reason) => {
+          if (reason === 'backdropClick' || reason === 'escapeKeyDown') return;
+          setShowCardioEndDialog(false);
+        }}
+        maxWidth="sm"
+        fullWidth
+        data-testid="cardio-end-confirm-dialog"
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <WarningRounded color="warning" />
+          存在未完成的有氧训练
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            当前有进行中的有氧训练记录。结束整场训练前，请选择如何处理。
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ flexDirection: 'column', gap: 1, p: 2, pt: 0 }}>
+          <Button
+            data-testid="cardio-end-complete"
+            onClick={handleCompleteCardioAndEnd}
+            variant="contained"
+            color="primary"
+            fullWidth
+          >
+            完成当前有氧并结束训练
+          </Button>
+          <Button
+            data-testid="cardio-end-back"
+            onClick={() => setShowCardioEndDialog(false)}
+            variant="outlined"
+            fullWidth
+          >
+            返回继续记录
+          </Button>
+          <Button
+            data-testid="cardio-end-discard"
+            onClick={handleDiscardCardioAndEnd}
+            color="error"
+            fullWidth
+          >
+            放弃当前有氧并结束训练
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

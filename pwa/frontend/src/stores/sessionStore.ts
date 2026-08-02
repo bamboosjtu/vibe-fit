@@ -6,6 +6,8 @@ import type {
   TrainingPlan,
   TrainingDay,
   Exercise,
+  RestTimerState,
+  CardioRecord,
 } from '../types';
 import {
   getAllSessions,
@@ -26,15 +28,20 @@ import {
   continueAfterGap,
   migrateLegacySession,
   isStaleSession,
+  IDLE_REST_TIMER,
+  startRestTimerState,
+  isRestTimerExpired,
+  startCardioRecord,
+  pauseCardioRecord,
+  resumeCardioRecord,
+  completeCardioRecord,
 } from '../domain/sessionTimer';
 
 interface SessionState {
   sessions: TrainingSession[];
   activeSession: TrainingSession | null;
   staleSession: TrainingSession | null;
-  restTimer: number;
-  restTimerExerciseId: string | null;
-  isRestTimerActive: boolean;
+  restTimer: RestTimerState;
   isLoading: boolean;
   initialized: boolean;
 
@@ -56,10 +63,10 @@ interface SessionState {
   checkpointSession: () => void;
   resolveStaleSession: (action: 'continue' | 'end' | 'discard') => Promise<void>;
 
-  // 休息计时器
-  startRestTimer: (seconds: number, sessionExerciseId?: string) => void;
-  decrementRestTimer: () => void;
+  // 休息计时器（基于时间戳）
+  startRestTimer: (durationSeconds: number, sessionExerciseId: string) => void;
   stopRestTimer: () => void;
+  expireRestTimerIfEnded: () => void;
 
   // 动作管理
   addExercise: (exercise: Exercise, phaseId?: string, groupId?: string) => void;
@@ -72,6 +79,17 @@ interface SessionState {
   deleteSet: (sessionExerciseId: string, setId: string) => void;
   toggleSetCompleted: (sessionExerciseId: string, setId: string) => void;
   copyLastSet: (sessionExerciseId: string) => void;
+
+  // 有氧训练管理
+  startCardio: (exercise: Exercise, targetDurationMinutes?: number) => void;
+  pauseCardio: (sessionExerciseId: string) => void;
+  resumeCardio: (sessionExerciseId: string) => void;
+  completeCardio: (
+    sessionExerciseId: string,
+    metrics?: Partial<Pick<CardioRecord, 'speed' | 'incline' | 'distance' | 'calories' | 'rpe'>>,
+  ) => void;
+  cancelCardio: (sessionExerciseId: string) => void;
+  hasActiveCardio: () => boolean;
 
   // 历史记录
   getSessionById: (id: string) => Promise<TrainingSession | undefined>;
@@ -89,9 +107,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   sessions: [],
   activeSession: null,
   staleSession: null,
-  restTimer: 0,
-  restTimerExerciseId: null,
-  isRestTimerActive: false,
+  restTimer: IDLE_REST_TIMER,
   isLoading: false,
   initialized: false,
 
@@ -155,6 +171,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
               order: order++,
               phaseId: phase.id,
               groupId: group.id,
+              // 从计划复制休息时间，历史记录不受后续计划修改影响
+              restSeconds: config.restSeconds,
             });
           });
         });
@@ -230,9 +248,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set({
       activeSession: null,
       staleSession: null,
-      restTimer: 0,
-      restTimerExerciseId: null,
-      isRestTimerActive: false,
+      restTimer: IDLE_REST_TIMER,
     });
     await get().loadSessions();
   },
@@ -242,9 +258,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set({
       activeSession: null,
       staleSession: null,
-      restTimer: 0,
-      restTimerExerciseId: null,
-      isRestTimerActive: false,
+      restTimer: IDLE_REST_TIMER,
     });
   },
 
@@ -262,9 +276,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set({
       activeSession: { ...activeSession, ...timerFields },
       // 暂停训练时清空当前休息计时
-      restTimer: 0,
-      restTimerExerciseId: null,
-      isRestTimerActive: false,
+      restTimer: IDLE_REST_TIMER,
     });
     get()._persistPending();
   },
@@ -327,23 +339,23 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
   },
 
-  // ── 休息计时器 ──────────────────────────────────────────
+  // ── 休息计时器（基于时间戳，setInterval 仅刷新显示） ───
 
-  startRestTimer: (seconds, sessionExerciseId) => {
-    set({ restTimer: seconds, restTimerExerciseId: sessionExerciseId ?? null, isRestTimerActive: true });
-  },
-
-  decrementRestTimer: () => {
-    set((state) => {
-      if (state.restTimer <= 1) {
-        return { restTimer: 0, restTimerExerciseId: null, isRestTimerActive: false };
-      }
-      return { restTimer: state.restTimer - 1 };
-    });
+  startRestTimer: (durationSeconds, sessionExerciseId) => {
+    // 完成另一动作的组：替换当前休息计时
+    set({ restTimer: startRestTimerState(durationSeconds, sessionExerciseId) });
   },
 
   stopRestTimer: () => {
-    set({ restTimer: 0, restTimerExerciseId: null, isRestTimerActive: false });
+    set({ restTimer: IDLE_REST_TIMER });
+  },
+
+  expireRestTimerIfEnded: () => {
+    // 倒计时归零：状态自动切换为 idle
+    const { restTimer } = get();
+    if (isRestTimerExpired(restTimer)) {
+      set({ restTimer: IDLE_REST_TIMER });
+    }
   },
 
   // ── 动作管理 ────────────────────────────────────────────
@@ -352,8 +364,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const { activeSession } = get();
     if (!activeSession) return;
 
-    const numSets = 3;
-    const sets: SetRecord[] = Array.from({ length: numSets }, (_, i) => ({
+    // 有氧动作不创建组记录，力量动作创建默认 3 组
+    const isCardio = exercise.type === 'cardio';
+    const sets: SetRecord[] = isCardio ? [] : Array.from({ length: 3 }, (_, i) => ({
       id: generateId(),
       exerciseId: exercise.id,
       setNumber: i + 1,
@@ -371,6 +384,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       order: activeSession.exercises.length,
       phaseId: phaseId || 'extra',
       groupId: groupId || 'extra',
+      // 有氧动作初始为 idle 状态
+      cardioRecord: isCardio ? { status: 'idle', elapsedSeconds: 0 } : undefined,
     };
 
     set((state) => ({
@@ -530,6 +545,134 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       distance: lastSet.distance,
       rpe: lastSet.rpe,
     });
+  },
+
+  // ── 有氧训练管理（基于时间戳，与训练总计时相同模型） ───
+
+  startCardio: (exercise, targetDurationMinutes) => {
+    // 确保整场 activeSession 已存在
+    get().ensureSession();
+
+    const { activeSession } = get();
+    if (!activeSession) return;
+
+    // 同一时刻最多一个有氧动作运行
+    const hasRunning = activeSession.exercises.some(
+      (e) => e.cardioRecord?.status === 'running',
+    );
+    if (hasRunning) return;
+
+    // 当前没有该有氧动作时，先加入 Session
+    let sessionExercise = activeSession.exercises.find(
+      (e) => e.exerciseId === exercise.id && e.type === 'cardio',
+    );
+
+    if (!sessionExercise) {
+      get().addExercise(exercise, 'cardio', 'cardio');
+      const updated = get().activeSession;
+      if (!updated) return;
+      sessionExercise = updated.exercises.find(
+        (e) => e.exerciseId === exercise.id && e.type === 'cardio',
+      );
+      if (!sessionExercise) return;
+    }
+
+    const targetDurationSeconds = targetDurationMinutes
+      ? targetDurationMinutes * 60
+      : undefined;
+
+    const cardioRecord = startCardioRecord(targetDurationSeconds);
+
+    set((state) => ({
+      activeSession: state.activeSession ? {
+        ...state.activeSession,
+        exercises: state.activeSession.exercises.map((e) =>
+          e.id === sessionExercise!.id ? { ...e, cardioRecord } : e,
+        ),
+      } : null,
+    }));
+    get()._persistPending();
+  },
+
+  pauseCardio: (sessionExerciseId) => {
+    const { activeSession } = get();
+    if (!activeSession) return;
+
+    const exercise = activeSession.exercises.find((e) => e.id === sessionExerciseId);
+    if (!exercise?.cardioRecord || exercise.cardioRecord.status !== 'running') return;
+
+    const cardioRecord = pauseCardioRecord(exercise.cardioRecord);
+    set((state) => ({
+      activeSession: state.activeSession ? {
+        ...state.activeSession,
+        exercises: state.activeSession.exercises.map((e) =>
+          e.id === sessionExerciseId ? { ...e, cardioRecord } : e,
+        ),
+      } : null,
+    }));
+    get()._persistPending();
+  },
+
+  resumeCardio: (sessionExerciseId) => {
+    const { activeSession } = get();
+    if (!activeSession) return;
+
+    const exercise = activeSession.exercises.find((e) => e.id === sessionExerciseId);
+    if (!exercise?.cardioRecord || exercise.cardioRecord.status !== 'paused') return;
+
+    const cardioRecord = resumeCardioRecord(exercise.cardioRecord);
+    set((state) => ({
+      activeSession: state.activeSession ? {
+        ...state.activeSession,
+        exercises: state.activeSession.exercises.map((e) =>
+          e.id === sessionExerciseId ? { ...e, cardioRecord } : e,
+        ),
+      } : null,
+    }));
+    get()._persistPending();
+  },
+
+  completeCardio: (sessionExerciseId, metrics) => {
+    const { activeSession } = get();
+    if (!activeSession) return;
+
+    const exercise = activeSession.exercises.find((e) => e.id === sessionExerciseId);
+    if (!exercise?.cardioRecord) return;
+
+    const cardioRecord = completeCardioRecord(exercise.cardioRecord, metrics);
+    set((state) => ({
+      activeSession: state.activeSession ? {
+        ...state.activeSession,
+        exercises: state.activeSession.exercises.map((e) =>
+          e.id === sessionExerciseId ? { ...e, cardioRecord } : e,
+        ),
+      } : null,
+    }));
+    get()._persistPending();
+  },
+
+  cancelCardio: (sessionExerciseId) => {
+    const { activeSession } = get();
+    if (!activeSession) return;
+
+    const cardioRecord: CardioRecord = { status: 'idle', elapsedSeconds: 0 };
+    set((state) => ({
+      activeSession: state.activeSession ? {
+        ...state.activeSession,
+        exercises: state.activeSession.exercises.map((e) =>
+          e.id === sessionExerciseId ? { ...e, cardioRecord } : e,
+        ),
+      } : null,
+    }));
+    get()._persistPending();
+  },
+
+  hasActiveCardio: () => {
+    const { activeSession } = get();
+    if (!activeSession) return false;
+    return activeSession.exercises.some(
+      (e) => e.cardioRecord?.status === 'running' || e.cardioRecord?.status === 'paused',
+    );
   },
 
   // ── 历史记录 ────────────────────────────────────────────

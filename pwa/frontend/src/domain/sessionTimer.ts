@@ -9,7 +9,7 @@
  * - 长时间中断不得自动累计整个间隔
  */
 
-import type { TrainingSession, TimerStatus } from '../types';
+import type { TrainingSession, TimerStatus, RestTimerState, CardioRecord } from '../types';
 
 /** 最大允许的恢复间隔（毫秒），超过则视为异常中断 */
 export const MAX_RESUME_GAP_MS = 4 * 60 * 60 * 1000; // 4 小时
@@ -261,4 +261,177 @@ export function getTimerStatusText(status: TimerStatus | undefined): string {
     default:
       return '准备开始';
   }
+}
+
+// ============================================================================
+// 休息计时器纯函数（基于时间戳，setInterval 仅刷新显示）
+// ============================================================================
+
+/** 空闲状态的休息计时器 */
+export const IDLE_REST_TIMER: RestTimerState = {
+  status: 'idle',
+  sessionExerciseId: null,
+  durationSeconds: 0,
+  remainingSeconds: 0,
+  endsAt: null,
+};
+
+/**
+ * 计算休息计时器剩余秒数。
+ *
+ * - running: max(0, (endsAt - now) / 1000)
+ * - paused: remainingSeconds
+ * - idle: 0
+ */
+export function computeRestRemaining(
+  restTimer: RestTimerState,
+  now: number = Date.now(),
+): number {
+  if (restTimer.status === 'running' && restTimer.endsAt) {
+    const ms = new Date(restTimer.endsAt).getTime() - now;
+    return Math.max(0, Math.floor(ms / 1000));
+  }
+  if (restTimer.status === 'paused') {
+    return restTimer.remainingSeconds;
+  }
+  return 0;
+}
+
+/** 休息计时是否已归零（仅 running 状态有意义） */
+export function isRestTimerExpired(
+  restTimer: RestTimerState,
+  now: number = Date.now(),
+): boolean {
+  return restTimer.status === 'running' && computeRestRemaining(restTimer, now) <= 0;
+}
+
+/** 格式化休息时间为 mm:ss */
+export function formatRestTime(seconds: number): string {
+  const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const secs = (seconds % 60).toString().padStart(2, '0');
+  return `${minutes}:${secs}`;
+}
+
+/**
+ * 启动休息计时器，返回新的 RestTimerState。
+ * 无论之前是什么状态，都替换为新计时。
+ */
+export function startRestTimerState(
+  durationSeconds: number,
+  sessionExerciseId: string,
+  now: number = Date.now(),
+): RestTimerState {
+  return {
+    status: 'running',
+    sessionExerciseId,
+    durationSeconds,
+    remainingSeconds: durationSeconds,
+    endsAt: new Date(now + durationSeconds * 1000).toISOString(),
+  };
+}
+
+/**
+ * 暂停休息计时器：结算剩余秒数，清除 endsAt。
+ */
+export function pauseRestTimerState(
+  restTimer: RestTimerState,
+  now: number = Date.now(),
+): RestTimerState {
+  if (restTimer.status !== 'running') return restTimer;
+  return {
+    ...restTimer,
+    status: 'paused',
+    remainingSeconds: computeRestRemaining(restTimer, now),
+    endsAt: null,
+  };
+}
+
+/**
+ * 恢复休息计时器：以 remainingSeconds 重新计算 endsAt。
+ */
+export function resumeRestTimerState(
+  restTimer: RestTimerState,
+  now: number = Date.now(),
+): RestTimerState {
+  if (restTimer.status !== 'paused') return restTimer;
+  return {
+    ...restTimer,
+    status: 'running',
+    endsAt: new Date(now + restTimer.remainingSeconds * 1000).toISOString(),
+  };
+}
+
+// ============================================================================
+// 有氧训练计时纯函数（与训练总计时相同的时间戳模型）
+// ============================================================================
+
+/** 计算有氧记录的当前累计秒数 */
+export function computeCardioElapsedSeconds(
+  record: CardioRecord | undefined,
+  now: number = Date.now(),
+): number {
+  if (!record) return 0;
+  const base = record.elapsedSeconds ?? 0;
+  if (record.status === 'running' && record.runningSince) {
+    const runningMs = now - new Date(record.runningSince).getTime();
+    return base + Math.max(0, Math.floor(runningMs / 1000));
+  }
+  return base;
+}
+
+/** 启动有氧记录 */
+export function startCardioRecord(
+  targetDurationSeconds?: number,
+  now: number = Date.now(),
+): CardioRecord {
+  const nowIso = new Date(now).toISOString();
+  return {
+    status: 'running',
+    startedAt: nowIso,
+    elapsedSeconds: 0,
+    runningSince: nowIso,
+    targetDurationSeconds,
+  };
+}
+
+/** 暂停有氧记录：结算当前运行区间 */
+export function pauseCardioRecord(
+  record: CardioRecord,
+  now: number = Date.now(),
+): CardioRecord {
+  if (record.status !== 'running') return record;
+  return {
+    ...record,
+    status: 'paused',
+    elapsedSeconds: computeCardioElapsedSeconds(record, now),
+    runningSince: null,
+  };
+}
+
+/** 恢复有氧记录：保留 elapsedSeconds，设新 runningSince */
+export function resumeCardioRecord(
+  record: CardioRecord,
+  now: number = Date.now(),
+): CardioRecord {
+  if (record.status !== 'paused') return record;
+  return {
+    ...record,
+    status: 'running',
+    runningSince: new Date(now).toISOString(),
+  };
+}
+
+/** 完成有氧记录：结算最后运行区间，设 endedAt */
+export function completeCardioRecord(
+  record: CardioRecord,
+  metrics: Partial<Pick<CardioRecord, 'speed' | 'incline' | 'distance' | 'calories' | 'rpe'>> = {},
+  now: number = Date.now(),
+): CardioRecord {
+  return {
+    ...record,
+    ...pauseCardioRecord(record, now),
+    status: 'completed',
+    endedAt: new Date(now).toISOString(),
+    ...metrics,
+  };
 }

@@ -23,6 +23,9 @@ export const ExerciseSchema = z.object({
 });
 export type Exercise = z.infer<typeof ExerciseSchema>;
 
+// 力量训练默认休息时间（秒）
+export const DEFAULT_STRENGTH_REST_SECONDS = 75;
+
 // 训练组记录
 export const SetRecordSchema = z.object({
   id: z.string(),
@@ -37,6 +40,22 @@ export const SetRecordSchema = z.object({
 });
 export type SetRecord = z.infer<typeof SetRecordSchema>;
 
+// 有氧训练单次记录（基于时间戳，setInterval 仅刷新显示）
+export const CardioRecordSchema = z.object({
+  status: z.enum(['idle', 'running', 'paused', 'completed']),
+  startedAt: z.string().optional(),
+  endedAt: z.string().optional(),
+  elapsedSeconds: z.number().default(0),
+  runningSince: z.string().nullable().optional(),
+  targetDurationSeconds: z.number().optional(),
+  speed: z.number().optional(),
+  incline: z.number().optional(),
+  distance: z.number().optional(),
+  calories: z.number().optional(),
+  rpe: z.number().min(1).max(10).optional(),
+});
+export type CardioRecord = z.infer<typeof CardioRecordSchema>;
+
 // 训练会话中的动作
 export const SessionExerciseSchema = z.object({
   id: z.string(),
@@ -47,8 +66,21 @@ export const SessionExerciseSchema = z.object({
   order: z.number(),
   phaseId: z.string().optional(),
   groupId: z.string().optional(),
+  // 力量训练：组间休息时间（秒），从计划复制以避免后续修改计划影响历史记录
+  restSeconds: z.number().optional(),
+  // 有氧训练：单次有氧记录
+  cardioRecord: CardioRecordSchema.optional(),
 });
 export type SessionExercise = z.infer<typeof SessionExerciseSchema>;
+
+// 休息计时器状态（基于时间戳，setInterval 仅刷新显示）
+export interface RestTimerState {
+  status: 'running' | 'paused' | 'idle';
+  sessionExerciseId: string | null;
+  durationSeconds: number;
+  remainingSeconds: number; // 暂停时使用
+  endsAt: string | null; // 运行时使用，ISO 时间戳
+}
 
 // 计时器状态
 export const TimerStatusSchema = z.enum(['running', 'paused', 'completed']);
@@ -79,7 +111,8 @@ export const PlanExerciseConfigSchema = z.object({
   type: ExerciseTypeSchema,
   targetSets: z.number().optional(),
   targetReps: z.number().optional(),
-  targetDuration: z.number().optional(), // 有氧目标时长
+  targetDuration: z.number().optional(), // 有氧目标时长（分钟）
+  restSeconds: z.number().optional(), // 力量训练组间休息（秒）
   order: z.number(),
 });
 export type PlanExerciseConfig = z.infer<typeof PlanExerciseConfigSchema>;

@@ -12,7 +12,20 @@ import {
   endAtLastCheckpoint,
   getTimerStatusText,
   MAX_RESUME_GAP_MS,
+  IDLE_REST_TIMER,
+  computeRestRemaining,
+  isRestTimerExpired,
+  formatRestTime,
+  startRestTimerState,
+  pauseRestTimerState,
+  resumeRestTimerState,
+  computeCardioElapsedSeconds,
+  startCardioRecord,
+  pauseCardioRecord,
+  resumeCardioRecord,
+  completeCardioRecord,
 } from '../src/domain/sessionTimer';
+import type { RestTimerState, CardioRecord } from '../src/types';
 import type { TrainingSession } from '../src/types';
 
 const NOW = new Date('2026-08-02T12:00:00.000Z').getTime();
@@ -378,5 +391,310 @@ describe('getTimerStatusText', () => {
 
   it('undefined -> 准备开始', () => {
     expect(getTimerStatusText(undefined)).toBe('准备开始');
+  });
+});
+
+// ============================================================================
+// 休息计时器纯函数测试
+// ============================================================================
+
+describe('computeRestRemaining', () => {
+  it('running：计算 endsAt - now 的秒数', () => {
+    const timer: RestTimerState = {
+      status: 'running',
+      sessionExerciseId: 'ex1',
+      durationSeconds: 75,
+      remainingSeconds: 75,
+      endsAt: new Date(NOW + 30 * 1000).toISOString(),
+    };
+    expect(computeRestRemaining(timer, NOW)).toBe(30);
+  });
+
+  it('running 且已过期：返回 0', () => {
+    const timer: RestTimerState = {
+      status: 'running',
+      sessionExerciseId: 'ex1',
+      durationSeconds: 75,
+      remainingSeconds: 75,
+      endsAt: new Date(NOW - 10 * 1000).toISOString(),
+    };
+    expect(computeRestRemaining(timer, NOW)).toBe(0);
+  });
+
+  it('paused：返回 remainingSeconds', () => {
+    const timer: RestTimerState = {
+      status: 'paused',
+      sessionExerciseId: 'ex1',
+      durationSeconds: 75,
+      remainingSeconds: 45,
+      endsAt: null,
+    };
+    expect(computeRestRemaining(timer, NOW)).toBe(45);
+  });
+
+  it('idle：返回 0', () => {
+    expect(computeRestRemaining(IDLE_REST_TIMER, NOW)).toBe(0);
+  });
+});
+
+describe('isRestTimerExpired', () => {
+  it('running 且剩余 > 0：false', () => {
+    const timer: RestTimerState = {
+      status: 'running',
+      sessionExerciseId: 'ex1',
+      durationSeconds: 75,
+      remainingSeconds: 75,
+      endsAt: new Date(NOW + 30 * 1000).toISOString(),
+    };
+    expect(isRestTimerExpired(timer, NOW)).toBe(false);
+  });
+
+  it('running 且已归零：true', () => {
+    const timer: RestTimerState = {
+      status: 'running',
+      sessionExerciseId: 'ex1',
+      durationSeconds: 75,
+      remainingSeconds: 75,
+      endsAt: new Date(NOW - 1 * 1000).toISOString(),
+    };
+    expect(isRestTimerExpired(timer, NOW)).toBe(true);
+  });
+
+  it('paused：false（暂停不算过期）', () => {
+    const timer: RestTimerState = {
+      status: 'paused',
+      sessionExerciseId: 'ex1',
+      durationSeconds: 75,
+      remainingSeconds: 0,
+      endsAt: null,
+    };
+    expect(isRestTimerExpired(timer, NOW)).toBe(false);
+  });
+});
+
+describe('formatRestTime', () => {
+  it('75 秒格式化为 01:15', () => {
+    expect(formatRestTime(75)).toBe('01:15');
+  });
+
+  it('0 秒格式化为 00:00', () => {
+    expect(formatRestTime(0)).toBe('00:00');
+  });
+
+  it('5 秒格式化为 00:05', () => {
+    expect(formatRestTime(5)).toBe('00:05');
+  });
+});
+
+describe('startRestTimerState', () => {
+  it('创建 running 状态，endsAt = now + duration', () => {
+    const timer = startRestTimerState(75, 'ex1', NOW);
+    expect(timer.status).toBe('running');
+    expect(timer.sessionExerciseId).toBe('ex1');
+    expect(timer.durationSeconds).toBe(75);
+    expect(timer.remainingSeconds).toBe(75);
+    expect(timer.endsAt).toBe(new Date(NOW + 75 * 1000).toISOString());
+  });
+});
+
+describe('pauseRestTimerState', () => {
+  it('running -> paused：结算剩余秒数，清除 endsAt', () => {
+    const running: RestTimerState = {
+      status: 'running',
+      sessionExerciseId: 'ex1',
+      durationSeconds: 75,
+      remainingSeconds: 75,
+      endsAt: new Date(NOW + 30 * 1000).toISOString(),
+    };
+    const paused = pauseRestTimerState(running, NOW);
+    expect(paused.status).toBe('paused');
+    expect(paused.remainingSeconds).toBe(30);
+    expect(paused.endsAt).toBeNull();
+  });
+
+  it('已 paused：不变', () => {
+    const paused: RestTimerState = {
+      status: 'paused',
+      sessionExerciseId: 'ex1',
+      durationSeconds: 75,
+      remainingSeconds: 45,
+      endsAt: null,
+    };
+    const result = pauseRestTimerState(paused, NOW);
+    expect(result).toBe(paused);
+  });
+});
+
+describe('resumeRestTimerState', () => {
+  it('paused -> running：以 remainingSeconds 重新计算 endsAt', () => {
+    const paused: RestTimerState = {
+      status: 'paused',
+      sessionExerciseId: 'ex1',
+      durationSeconds: 75,
+      remainingSeconds: 45,
+      endsAt: null,
+    };
+    const running = resumeRestTimerState(paused, NOW);
+    expect(running.status).toBe('running');
+    expect(running.endsAt).toBe(new Date(NOW + 45 * 1000).toISOString());
+  });
+
+  it('已 running：不变', () => {
+    const running: RestTimerState = {
+      status: 'running',
+      sessionExerciseId: 'ex1',
+      durationSeconds: 75,
+      remainingSeconds: 75,
+      endsAt: new Date(NOW + 30 * 1000).toISOString(),
+    };
+    const result = resumeRestTimerState(running, NOW);
+    expect(result).toBe(running);
+  });
+});
+
+// ============================================================================
+// 有氧训练计时纯函数测试
+// ============================================================================
+
+describe('computeCardioElapsedSeconds', () => {
+  it('running：累加 (now - runningSince) 秒数', () => {
+    const record: CardioRecord = {
+      status: 'running',
+      elapsedSeconds: 100,
+      runningSince: new Date(NOW - 30 * 1000).toISOString(),
+    };
+    expect(computeCardioElapsedSeconds(record, NOW)).toBe(130);
+  });
+
+  it('paused：仅返回 elapsedSeconds', () => {
+    const record: CardioRecord = {
+      status: 'paused',
+      elapsedSeconds: 100,
+      runningSince: null,
+    };
+    expect(computeCardioElapsedSeconds(record, NOW)).toBe(100);
+  });
+
+  it('completed：仅返回 elapsedSeconds', () => {
+    const record: CardioRecord = {
+      status: 'completed',
+      elapsedSeconds: 200,
+      runningSince: null,
+    };
+    expect(computeCardioElapsedSeconds(record, NOW)).toBe(200);
+  });
+
+  it('undefined：返回 0', () => {
+    expect(computeCardioElapsedSeconds(undefined, NOW)).toBe(0);
+  });
+
+  it('时钟回退：不出现负数', () => {
+    const record: CardioRecord = {
+      status: 'running',
+      elapsedSeconds: 50,
+      runningSince: new Date(NOW + 60 * 1000).toISOString(),
+    };
+    expect(computeCardioElapsedSeconds(record, NOW)).toBe(50);
+  });
+});
+
+describe('startCardioRecord', () => {
+  it('创建 running 状态，runningSince=now', () => {
+    const record = startCardioRecord(1800, NOW);
+    expect(record.status).toBe('running');
+    expect(record.startedAt).toBe(NOW_ISO);
+    expect(record.elapsedSeconds).toBe(0);
+    expect(record.runningSince).toBe(NOW_ISO);
+    expect(record.targetDurationSeconds).toBe(1800);
+  });
+
+  it('无目标时长时 targetDurationSeconds 为 undefined', () => {
+    const record = startCardioRecord(undefined, NOW);
+    expect(record.targetDurationSeconds).toBeUndefined();
+  });
+});
+
+describe('pauseCardioRecord', () => {
+  it('running -> paused：结算当前区间', () => {
+    const record: CardioRecord = {
+      status: 'running',
+      elapsedSeconds: 100,
+      runningSince: new Date(NOW - 30 * 1000).toISOString(),
+    };
+    const paused = pauseCardioRecord(record, NOW);
+    expect(paused.status).toBe('paused');
+    expect(paused.elapsedSeconds).toBe(130);
+    expect(paused.runningSince).toBeNull();
+  });
+
+  it('已 paused：不变', () => {
+    const record: CardioRecord = {
+      status: 'paused',
+      elapsedSeconds: 100,
+      runningSince: null,
+    };
+    expect(pauseCardioRecord(record, NOW)).toBe(record);
+  });
+});
+
+describe('resumeCardioRecord', () => {
+  it('paused -> running：保留 elapsedSeconds，设新 runningSince', () => {
+    const record: CardioRecord = {
+      status: 'paused',
+      elapsedSeconds: 100,
+      runningSince: null,
+    };
+    const running = resumeCardioRecord(record, NOW);
+    expect(running.status).toBe('running');
+    expect(running.elapsedSeconds).toBe(100);
+    expect(running.runningSince).toBe(NOW_ISO);
+  });
+
+  it('已 running：不变', () => {
+    const record: CardioRecord = {
+      status: 'running',
+      elapsedSeconds: 100,
+      runningSince: NOW_ISO,
+    };
+    expect(resumeCardioRecord(record, NOW)).toBe(record);
+  });
+});
+
+describe('completeCardioRecord', () => {
+  it('running：结算最后区间，设 completed 和 endedAt', () => {
+    const record: CardioRecord = {
+      status: 'running',
+      elapsedSeconds: 100,
+      runningSince: new Date(NOW - 50 * 1000).toISOString(),
+    };
+    const completed = completeCardioRecord(record, { speed: 8.5, incline: 2 }, NOW);
+    expect(completed.status).toBe('completed');
+    expect(completed.elapsedSeconds).toBe(150);
+    expect(completed.endedAt).toBe(NOW_ISO);
+    expect(completed.speed).toBe(8.5);
+    expect(completed.incline).toBe(2);
+  });
+
+  it('paused：直接完成，不累加', () => {
+    const record: CardioRecord = {
+      status: 'paused',
+      elapsedSeconds: 200,
+      runningSince: null,
+    };
+    const completed = completeCardioRecord(record, { distance: 5 }, NOW);
+    expect(completed.status).toBe('completed');
+    expect(completed.elapsedSeconds).toBe(200);
+    expect(completed.distance).toBe(5);
+  });
+
+  it('无 metrics 时只完成计时', () => {
+    const record: CardioRecord = {
+      status: 'running',
+      elapsedSeconds: 0,
+      runningSince: NOW_ISO,
+    };
+    const completed = completeCardioRecord(record, {}, NOW);
+    expect(completed.speed).toBeUndefined();
+    expect(completed.incline).toBeUndefined();
   });
 });

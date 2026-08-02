@@ -27,6 +27,7 @@ vi.mock('../src/utils/helpers', () => ({
 }));
 
 import { useSessionStore } from '../src/stores/sessionStore';
+import { IDLE_REST_TIMER } from '../src/domain/sessionTimer';
 import type { TrainingSession } from '../src/types';
 
 function makeSession(overrides: Partial<TrainingSession> = {}): TrainingSession {
@@ -56,9 +57,7 @@ beforeEach(async () => {
     sessions: [],
     activeSession: null,
     staleSession: null,
-    restTimer: 0,
-    restTimerExerciseId: null,
-    isRestTimerActive: false,
+    restTimer: IDLE_REST_TIMER,
     isLoading: false,
     initialized: false,
   });
@@ -218,7 +217,7 @@ describe('pauseSession / continueSession', () => {
 
     // 设置休息计时器在运行
     useSessionStore.getState().startRestTimer(60, 'ex1');
-    expect(useSessionStore.getState().isRestTimerActive).toBe(true);
+    expect(useSessionStore.getState().restTimer.status).toBe('running');
 
     useSessionStore.getState().pauseSession();
 
@@ -226,8 +225,8 @@ describe('pauseSession / continueSession', () => {
     expect(active?.timerStatus).toBe('paused');
     expect(active?.runningSince).toBeNull();
     // 暂停训练时清空当前休息计时
-    expect(useSessionStore.getState().isRestTimerActive).toBe(false);
-    expect(useSessionStore.getState().restTimer).toBe(0);
+    expect(useSessionStore.getState().restTimer.status).toBe('idle');
+    expect(useSessionStore.getState().restTimer).toEqual(IDLE_REST_TIMER);
   });
 
   it('pauseSession 对已 paused 的会话无效', () => {

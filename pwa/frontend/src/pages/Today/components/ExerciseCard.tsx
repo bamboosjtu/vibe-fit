@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Box,
   Button,
@@ -22,7 +22,13 @@ import {
 } from '@mui/icons-material';
 import { useSessionStore } from '../../../stores';
 import type { SessionExercise, SetRecord } from '../../../types';
+import { DEFAULT_STRENGTH_REST_SECONDS } from '../../../types';
 import { ExerciseArtwork } from '../../../components/WorkoutArtwork';
+import {
+  computeRestRemaining,
+  formatRestTime,
+  isRestTimerExpired,
+} from '../../../domain/sessionTimer';
 
 interface ExerciseCardProps {
   sessionExercise: SessionExercise;
@@ -34,20 +40,47 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
   const toggleSetCompleted = useSessionStore(state => state.toggleSetCompleted);
   const removeExercise = useSessionStore(state => state.removeExercise);
   const startRestTimer = useSessionStore(state => state.startRestTimer);
-  const restTimer = useSessionStore(state => state.restTimer);
-  const restTimerExerciseId = useSessionStore(state => state.restTimerExerciseId);
-  const isRestTimerActive = useSessionStore(state => state.isRestTimerActive);
   const stopRestTimer = useSessionStore(state => state.stopRestTimer);
+  const expireRestTimerIfEnded = useSessionStore(state => state.expireRestTimerIfEnded);
+  const restTimer = useSessionStore(state => state.restTimer);
 
   const [isExpanded, setIsExpanded] = useState(true);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const sets = sessionExercise.sets || [];
   const completedCount = sets.filter(set => Boolean(set.completedAt)).length;
-  const showRestTimer = isRestTimerActive && restTimerExerciseId === sessionExercise.id;
+
+  // 该动作的休息时间配置（从计划复制，不存在则使用默认值）
+  const restSeconds = sessionExercise.restSeconds ?? DEFAULT_STRENGTH_REST_SECONDS;
+
+  // 当前动作是否正在休息
+  const isThisResting =
+    restTimer.status !== 'idle' && restTimer.sessionExerciseId === sessionExercise.id;
+
+  // setInterval 仅触发 UI 重绘，休息计时数据由时间戳实时计算
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!isThisResting || restTimer.status !== 'running') return;
+    const interval = setInterval(() => {
+      // 倒计时归零时自动切换为 idle
+      if (isRestTimerExpired(restTimer)) {
+        expireRestTimerIfEnded();
+      }
+      setTick(t => t + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isThisResting, restTimer, expireRestTimerIfEnded]);
 
   const handleSetToggle = (setId: string, completed: boolean) => {
     toggleSetCompleted(sessionExercise.id, setId);
-    if (!completed) startRestTimer(75, sessionExercise.id);
+    if (!completed) {
+      // 未完成 -> 完成：启动该动作的休息计时
+      startRestTimer(restSeconds, sessionExercise.id);
+    } else {
+      // 已完成 -> 取消完成：若当前休息计时由该组触发，则停止计时
+      if (isThisResting) {
+        stopRestTimer();
+      }
+    }
   };
 
   const handleOpenMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -133,7 +166,7 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
         <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
           <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 0.4, color: 'text.secondary', mr: 0.15 }}>
             <TimerIcon sx={{ fontSize: 19 }} />
-            <Typography sx={{ fontSize: '0.72rem', whiteSpace: 'nowrap' }}>休息 75 秒</Typography>
+            <Typography sx={{ fontSize: '0.72rem', whiteSpace: 'nowrap' }}>休息 {restSeconds} 秒</Typography>
           </Box>
           <IconButton size="small" onClick={handleOpenMenu} sx={{ color: 'text.secondary' }}>
             <MoreIcon sx={{ fontSize: 20 }} />
@@ -175,46 +208,11 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
             />
           ))}
 
-          {showRestTimer && (
-            <Box
-              sx={{
-                mt: 0.75,
-                minHeight: 58,
-                display: 'grid',
-                gridTemplateColumns: '1fr auto 1fr',
-                alignItems: 'center',
-                gap: 1,
-                px: 1.4,
-                borderRadius: '7px',
-                bgcolor: 'rgba(5,169,120,0.07)',
-                color: '#078c66',
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.55 }}>
-                <TimerIcon sx={{ fontSize: 22 }} />
-                <Typography sx={{ fontSize: '0.82rem', fontWeight: 800 }}>休息中</Typography>
-              </Box>
-              <Typography sx={{ fontSize: '1.72rem', lineHeight: 1, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>
-                {formatRestTime(restTimer)}
-              </Typography>
-              <Button
-                data-testid="rest-timer-close-button"
-                variant="outlined"
-                onClick={stopRestTimer}
-                sx={{
-                  justifySelf: 'end',
-                  minWidth: 66,
-                  minHeight: 36,
-                  borderWidth: '1px !important',
-                  borderColor: '#06a878',
-                  borderRadius: '6px',
-                  color: '#078c66',
-                  fontSize: '0.8rem',
-                }}
-              >
-                跳过
-              </Button>
-            </Box>
+          {isThisResting && (
+            <RestTimerBar
+              remainingSeconds={computeRestRemaining(restTimer)}
+              onSkip={() => stopRestTimer()}
+            />
           )}
 
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.25, mt: 0.55 }}>
@@ -243,6 +241,50 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
         </Box>
       )}
     </Card>
+  );
+}
+
+function RestTimerBar({ remainingSeconds, onSkip }: { remainingSeconds: number; onSkip: () => void }) {
+  return (
+    <Box
+      sx={{
+        mt: 0.75,
+        minHeight: 58,
+        display: 'grid',
+        gridTemplateColumns: '1fr auto 1fr',
+        alignItems: 'center',
+        gap: 1,
+        px: 1.4,
+        borderRadius: '7px',
+        bgcolor: 'rgba(5,169,120,0.07)',
+        color: '#078c66',
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.55 }}>
+        <TimerIcon sx={{ fontSize: 22 }} />
+        <Typography sx={{ fontSize: '0.82rem', fontWeight: 800 }}>休息中</Typography>
+      </Box>
+      <Typography sx={{ fontSize: '1.72rem', lineHeight: 1, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>
+        {formatRestTime(remainingSeconds)}
+      </Typography>
+      <Button
+        data-testid="rest-timer-close-button"
+        variant="outlined"
+        onClick={onSkip}
+        sx={{
+          justifySelf: 'end',
+          minWidth: 66,
+          minHeight: 36,
+          borderWidth: '1px !important',
+          borderColor: '#06a878',
+          borderRadius: '6px',
+          color: '#078c66',
+          fontSize: '0.8rem',
+        }}
+      >
+        跳过
+      </Button>
+    </Box>
   );
 }
 
@@ -341,12 +383,6 @@ function getMuscleLabel(exercise: SessionExercise) {
   if (/三头|屈伸|pushdown/i.test(value)) return '肱三头';
   if (/腿|蹲|squat|deadlift|臀/i.test(value)) return '下肢';
   return '目标肌群';
-}
-
-function formatRestTime(seconds: number) {
-  const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
-  const secs = (seconds % 60).toString().padStart(2, '0');
-  return `${minutes}:${secs}`;
 }
 
 const tableGridStyle = {
