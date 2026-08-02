@@ -39,3 +39,4 @@ pwa/backend/dist
 .env.*.production
 
 reference/
+exercises-dataset/
