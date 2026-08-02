@@ -105,10 +105,17 @@ export const importAllData = (data: ImportPayload): Promise<void> =>
 export const clearAllData = () => getRepository().clearAllData();
 
 /**
- * 彻底删除整个数据库（开发阶段重置专用）。
- * 调用后需要刷新页面以重建数据库。
+ * 彻底删除整个数据库（仅开发阶段重置专用）。
+ *
+ * 安全约束：
+ * - 仅在 import.meta.env.DEV 下可用，生产构建中调用会抛错而非删库
+ * - 不作为普通用户可见按钮暴露；生产设置页使用 clearAllData()（带确认流程）
+ * - 调用后刷新页面以重建数据库
  */
 export async function deleteDatabase(): Promise<void> {
+  if (!import.meta.env.DEV) {
+    throw new Error('deleteDatabase() 仅在开发模式下可用；生产环境请使用 clearAllData()');
+  }
   await db.delete();
   // 阻止 Dexie 重新打开，需刷新页面
   window.location.reload();

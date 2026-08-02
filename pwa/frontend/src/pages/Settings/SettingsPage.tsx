@@ -27,6 +27,8 @@ import { useSettingsStore, usePlanStore, useSessionStore, useAuthStore } from '.
 import { exportAllData, importAllData, clearAllData } from '../../db';
 import { downloadJSON, readJSONFile, validateExportData, getCurrentISOString } from '../../utils/helpers';
 import { syncPush, syncPull, getSyncStatus } from '../../services/syncService';
+import { getNativeBridge } from '../../services/nativeBridge';
+import { isNativePlatform } from '../../db/repository';
 import { LoadingState } from '../../components/LoadingState';
 import type { ExportData } from '../../types';
 
@@ -89,7 +91,20 @@ export function SettingsPage() {
     };
 
     const filename = `vibefit-backup-${getCurrentISOString().split('T')[0]}.json`;
-    downloadJSON(exportData, filename);
+    const json = JSON.stringify(exportData, null, 2);
+
+    if (isNativePlatform()) {
+      // Android：写入文件系统并调起系统分享
+      try {
+        const bridge = await getNativeBridge();
+        await bridge.exportBackupFile(filename, json);
+      } catch (err) {
+        console.error('[Settings] 原生导出失败:', err);
+      }
+    } else {
+      // Web：浏览器下载
+      downloadJSON(exportData, filename);
+    }
   };
 
   const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {

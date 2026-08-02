@@ -158,6 +158,7 @@ function CardioCard({ exercise, sessionExercise }: CardioCardProps) {
   const resumeCardio = useSessionStore(state => state.resumeCardio);
   const completeCardio = useSessionStore(state => state.completeCardio);
   const updateCardioMetrics = useSessionStore(state => state.updateCardioMetrics);
+  const flushPendingWrites = useSessionStore(state => state.flushPendingWrites);
 
   const record = sessionExercise?.cardioRecord;
   const status = record?.status ?? 'idle';
@@ -176,9 +177,14 @@ function CardioCard({ exercise, sessionExercise }: CardioCardProps) {
     return () => clearInterval(interval);
   }, [status, sessionExercise?.id]);
 
-  // 页面隐藏前 flush 未提交的草稿（避免切换页签/刷新丢失输入）
+  // 页面隐藏前 flush 未提交的草稿 + 立即持久化（避免切换页签/刷新丢失输入）
   useEffect(() => {
-    const handler = () => window.dispatchEvent(new Event('cardio-flush-drafts'));
+    const handler = () => {
+      // 1. 同步提交所有 CardioDraftInput 草稿到 store
+      window.dispatchEvent(new Event('cardio-flush-drafts'));
+      // 2. 取消防抖并立即写库（pagehide 时浏览器会等待 pending IDB 事务完成）
+      void flushPendingWrites();
+    };
     const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') handler();
     };
@@ -188,7 +194,7 @@ function CardioCard({ exercise, sessionExercise }: CardioCardProps) {
       window.removeEventListener('pagehide', handler);
       window.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, []);
+  }, [flushPendingWrites]);
 
   const elapsedSeconds = record ? computeCardioElapsedSeconds(record) : 0;
 
@@ -235,6 +241,8 @@ function CardioCard({ exercise, sessionExercise }: CardioCardProps) {
 
   const handleComplete = () => {
     if (!sessionExercise) return;
+    // 完成前先提交所有未提交的输入草稿到 store（确保最新指标被保存）
+    window.dispatchEvent(new Event('cardio-flush-drafts'));
     // 完成时无需再传 metrics：所有运行中输入已通过 updateCardioMetrics 同步到 store
     completeCardio(sessionExercise.id);
   };

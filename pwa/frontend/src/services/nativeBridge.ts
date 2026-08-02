@@ -12,6 +12,8 @@ import { isNativePlatform } from '../db/repository';
 export interface NativeBridge {
   /** 休息计时器到点通知（后台/锁屏可响） */
   scheduleRestTimerNotification(seconds: number): Promise<void>;
+  /** 取消休息计时器通知（跳过休息时调用） */
+  cancelRestTimerNotification(): Promise<void>;
   /** 完成组 / 结束训练触感反馈 */
   hapticLight(): Promise<void>;
   hapticMedium(): Promise<void>;
@@ -25,6 +27,9 @@ export interface NativeBridge {
 const webBridge: NativeBridge = {
   async scheduleRestTimerNotification() {
     /* Web：休息计时器由前端 setInterval 处理，无原生通知 */
+  },
+  async cancelRestTimerNotification() {
+    /* no-op */
   },
   async hapticLight() { /* no-op */ },
   async hapticMedium() { /* no-op */ },

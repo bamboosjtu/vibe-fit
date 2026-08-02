@@ -12,12 +12,15 @@ const config: CapacitorConfig = {
   plugins: {
     SplashScreen: {
       launchShowDuration: 1000,
-      backgroundColor: '#1976d2',
+      // 与 res/values/colors.xml 的 colorPrimary 保持一致
+      backgroundColor: '#05A978',
       showSpinner: false,
     },
     LocalNotifications: {
-      smallIcon: 'ic_stat_icon',
-      iconColor: '#1976d2',
+      // 使用现有的 ic_launcher 资源作为状态栏小图标
+      // （颜色由系统着色为白色，建议后续提供专门的白色透明图标）
+      smallIcon: 'ic_launcher',
+      iconColor: '#05A978',
     },
   },
 };

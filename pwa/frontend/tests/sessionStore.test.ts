@@ -21,6 +21,18 @@ const { MOCK_NOW, MOCK_NOW_ISO, dbMocks } = vi.hoisted(() => {
 
 vi.mock('../src/db', () => dbMocks);
 
+// Mock nativeBridge：测试环境为 Web，fireNative 应为 no-op
+vi.mock('../src/services/nativeBridge', () => ({
+  getNativeBridge: vi.fn().mockResolvedValue({
+    scheduleRestTimerNotification: vi.fn(),
+    cancelRestTimerNotification: vi.fn(),
+    hapticLight: vi.fn(),
+    hapticMedium: vi.fn(),
+    exportBackupFile: vi.fn(),
+    importBackupFile: vi.fn(),
+  }),
+}));
+
 vi.mock('../src/utils/helpers', () => ({
   generateId: vi.fn(() => 'test-id-' + Math.random().toString(36).slice(2, 8)),
   getCurrentISOString: vi.fn(() => new Date().toISOString()),

@@ -16,11 +16,18 @@ import type { NativeBridge } from './nativeBridge';
  * 不会进入 Web 主 bundle（顶部静态 import 的 Capacitor 插件因此被隔离到独立 chunk）。
  */
 export class CapacitorBridge implements NativeBridge {
+  /** 休息计时器通知使用固定 ID，便于取消 */
+  private static readonly REST_TIMER_NOTIF_ID = 1001;
+
   async scheduleRestTimerNotification(seconds: number): Promise<void> {
+    // 先取消已有的休息通知，再重新调度
+    await LocalNotifications.cancel({
+      notifications: [{ id: CapacitorBridge.REST_TIMER_NOTIF_ID }],
+    });
     await LocalNotifications.schedule({
       notifications: [
         {
-          id: Date.now(),
+          id: CapacitorBridge.REST_TIMER_NOTIF_ID,
           title: '休息结束',
           body: '该开始下一组了！',
           schedule: {
@@ -28,6 +35,12 @@ export class CapacitorBridge implements NativeBridge {
           },
         },
       ],
+    });
+  }
+
+  async cancelRestTimerNotification(): Promise<void> {
+    await LocalNotifications.cancel({
+      notifications: [{ id: CapacitorBridge.REST_TIMER_NOTIF_ID }],
     });
   }
 

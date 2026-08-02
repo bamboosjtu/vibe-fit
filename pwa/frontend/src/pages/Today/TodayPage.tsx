@@ -30,6 +30,7 @@ export function TodayPage() {
   const hasActiveCardio = useSessionStore(state => state.hasActiveCardio);
   const completeCardio = useSessionStore(state => state.completeCardio);
   const cancelCardio = useSessionStore(state => state.cancelCardio);
+  const flushPendingWrites = useSessionStore(state => state.flushPendingWrites);
 
   const { currentPlan, initialize: initPlan, advanceToNextDay } = usePlanStore();
 
@@ -95,6 +96,10 @@ export function TodayPage() {
   };
 
   const doEndSession = async () => {
+    // 提交所有未提交的有氧输入草稿到 store
+    window.dispatchEvent(new Event('cardio-flush-drafts'));
+    // 等待 pending 写队列完成，确保最新状态已落库
+    await flushPendingWrites();
     await endSession();
     if (currentPlan) {
       await advanceToNextDay(currentPlan.id);
@@ -102,6 +107,8 @@ export function TodayPage() {
   };
 
   const handleCompleteCardioAndEnd = async () => {
+    // 提交所有未提交的有氧输入草稿到 store（确保完成时携带最新指标）
+    window.dispatchEvent(new Event('cardio-flush-drafts'));
     // 完成所有进行中的有氧记录
     const cardioExercises = activeSession?.exercises.filter(
       (e) => e.cardioRecord?.status === 'running' || e.cardioRecord?.status === 'paused',

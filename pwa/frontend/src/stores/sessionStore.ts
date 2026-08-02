@@ -36,6 +36,16 @@ import {
   resumeCardioRecord,
   completeCardioRecord,
 } from '../domain/sessionTimer';
+import { getNativeBridge } from '../services/nativeBridge';
+
+/**
+ * 触发原生能力（触感/通知），fire-and-forget。
+ * Web 上全部 no-op；原生平台调用对应 Capacitor 插件。
+ * 错误静默忽略，不影响业务逻辑。
+ */
+function fireNative(fn: (bridge: Awaited<ReturnType<typeof getNativeBridge>>) => Promise<void>): void {
+  void getNativeBridge().then(fn).catch(() => { /* 静默 */ });
+}
 
 interface SessionState {
   sessions: TrainingSession[];
@@ -109,6 +119,11 @@ interface SessionState {
 
   // 内部：串行持久化 pending training
   _persistPending: () => Promise<void>;
+  /**
+   * 立即取消防抖并持久化所有 pending 写入，返回 writeQueue promise 供调用方 await。
+   * 用于 pagehide / visibilitychange / 结束训练 / 完成有氧前确保数据落库。
+   */
+  flushPendingWrites: () => Promise<void>;
 }
 
 // 串行写入队列，防止旧写入覆盖新状态
@@ -269,6 +284,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       restTimer: IDLE_REST_TIMER,
     });
     await get().loadSessions();
+    // 原生：结束训练中触感 + 取消可能残留的休息通知
+    fireNative((b) => b.hapticMedium());
+    fireNative((b) => b.cancelRestTimerNotification());
   },
 
   // ── 计时器管理 ──────────────────────────────────────────
@@ -284,6 +302,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       restTimer: IDLE_REST_TIMER,
     });
     get()._persistPending();
+    // 原生：暂停训练时取消休息通知
+    fireNative((b) => b.cancelRestTimerNotification());
   },
 
   continueSession: () => {
@@ -349,10 +369,14 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   startRestTimer: (durationSeconds, sessionExerciseId) => {
     // 完成另一动作的组：替换当前休息计时
     set({ restTimer: startRestTimerState(durationSeconds, sessionExerciseId) });
+    // 原生：调度休息结束通知（后台/锁屏可响）
+    fireNative((b) => b.scheduleRestTimerNotification(durationSeconds));
   },
 
   stopRestTimer: () => {
     set({ restTimer: IDLE_REST_TIMER });
+    // 原生：取消待触发的休息通知
+    fireNative((b) => b.cancelRestTimerNotification());
   },
 
   expireRestTimerIfEnded: () => {
@@ -483,6 +507,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const { activeSession } = get();
     if (!activeSession) return;
 
+    // 判断当前操作是"完成"还是"取消完成"
+    const exercise = activeSession.exercises.find((e) => e.id === sessionExerciseId);
+    const targetSet = exercise?.sets.find((s) => s.id === setId);
+    const isCompleting = !targetSet?.completedAt;
+
     set((state) => ({
       activeSession: state.activeSession ? {
         ...state.activeSession,
@@ -499,6 +528,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       } : null,
     }));
     get()._persistPending();
+    // 原生：完成组时轻触感
+    if (isCompleting) {
+      fireNative((b) => b.hapticLight());
+    }
   },
 
   deleteSet: (sessionExerciseId, setId) => {
@@ -626,6 +659,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       } : null,
     }));
     get()._persistPending();
+    // 原生：完成有氧记录中触感
+    fireNative((b) => b.hapticMedium());
   },
 
   updateCardioMetrics: (sessionExerciseId, metrics) => {
@@ -715,6 +750,17 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     writeQueue = writeQueue.then(() => savePendingTraining(pending)).catch((err) => {
       console.error('[sessionStore] Failed to persist pending training:', err);
     });
+  },
+
+  flushPendingWrites: async () => {
+    // 取消有氧指标防抖定时器，立即触发持久化
+    if (cardioMetricsPersistTimer) {
+      clearTimeout(cardioMetricsPersistTimer);
+      cardioMetricsPersistTimer = null;
+    }
+    await get()._persistPending();
+    // 等待 writeQueue 中所有 pending 写入完成
+    await writeQueue;
   },
 }));
 
