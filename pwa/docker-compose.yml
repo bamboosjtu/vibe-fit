@@ -47,7 +47,7 @@ services:
       EVENT_PUBLISHER: local
       DATABASE_URL: postgres://vibefit:vibefit_dev_password@postgres:5432/vibefit_dev
       JWT_SECRET: dev-only-secret
-      CORS_ORIGIN: http://localhost:8081,http://localhost:8080,http://localhost:5173
+      CORS_ORIGIN: http://localhost:8081,http://localhost:8080,http://localhost:5173,http://127.0.0.1:8081,http://127.0.0.1:8080,http://127.0.0.1:5173
       LOG_PRETTY: "false"
       WORKER_PUSH_URL: http://worker:8080/pubsub/backups
     ports:
