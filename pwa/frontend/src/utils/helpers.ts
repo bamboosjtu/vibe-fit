@@ -1,4 +1,5 @@
-import type { TrainingPlan, TrainingDay, Exercise } from '../types';
+import type { TrainingPlan } from '../types';
+import { ExportDataSchema, type ExportData } from '../types';
 
 // 生成唯一ID
 export function generateId(): string {
@@ -25,17 +26,6 @@ export function getCurrentISOString(): string {
   return toLocalISOString(new Date());
 }
 
-// 格式化日期显示
-export function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    weekday: 'short',
-  });
-}
-
 // 格式化时间显示
 export function formatTime(dateString: string): string {
   const date = new Date(dateString);
@@ -43,16 +33,6 @@ export function formatTime(dateString: string): string {
     hour: '2-digit',
     minute: '2-digit',
   });
-}
-
-// 格式化持续时间（分钟）
-export function formatDuration(minutes: number): string {
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  if (hours > 0) {
-    return `${hours}小时${mins}分钟`;
-  }
-  return `${mins}分钟`;
 }
 
 /**
@@ -79,24 +59,6 @@ export function calculateSessionDuration(startedAt: string, endedAt?: string): n
   const start = new Date(startedAt).getTime();
   const end = endedAt ? new Date(endedAt).getTime() : Date.now();
   return Math.round((end - start) / (1000 * 60));
-}
-
-// 重量单位转换
-export function convertWeight(weight: number, from: 'kg' | 'lb', to: 'kg' | 'lb'): number {
-  if (from === to) return weight;
-  if (from === 'kg' && to === 'lb') {
-    return Math.round(weight * 2.20462 * 10) / 10;
-  }
-  return Math.round(weight * 0.453592 * 10) / 10;
-}
-
-// 距离单位转换
-export function convertDistance(distance: number, from: 'km' | 'mile', to: 'km' | 'mile'): number {
-  if (from === to) return distance;
-  if (from === 'km' && to === 'mile') {
-    return Math.round(distance * 0.621371 * 100) / 100;
-  }
-  return Math.round(distance * 1.60934 * 100) / 100;
 }
 
 // 从模板创建计划
@@ -151,34 +113,6 @@ export function createEmptyPlan(name: string): TrainingPlan {
   };
 }
 
-// 创建训练日
-export function createTrainingDay(name: string, order: number): TrainingDay {
-  return {
-    id: generateId(),
-    name,
-    phases: [],
-    isActive: true,
-    order,
-  };
-}
-
-// 从动作库创建计划动作配置
-export function createPlanExerciseFromExercise(
-  exercise: Exercise,
-  order: number,
-  targetSets?: number,
-  targetReps?: number
-) {
-  return {
-    exerciseId: exercise.id,
-    exerciseName: exercise.name,
-    type: exercise.type,
-    targetSets,
-    targetReps,
-    order,
-  };
-}
-
 // 下载JSON文件
 export function downloadJSON(data: unknown, filename: string): void {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -209,21 +143,11 @@ export function readJSONFile(file: File): Promise<unknown> {
   });
 }
 
-// 验证导出数据结构
-export function validateExportData(data: unknown): data is {
-  schemaVersion: number;
-  exportedAt: string;
-  appVersion: string;
-  settings?: unknown;
-  plans?: unknown[];
-  sessions?: unknown[];
-  exercises?: unknown[];
-} {
-  if (typeof data !== 'object' || data === null) return false;
-  const d = data as Record<string, unknown>;
-  return (
-    typeof d.schemaVersion === 'number' &&
-    typeof d.exportedAt === 'string' &&
-    typeof d.appVersion === 'string'
-  );
+/**
+ * 验证导出数据结构：使用 zod schema 进行深度校验。
+ * 确保导入的备份文件包含完整的 schemaVersion/exportedAt/appVersion
+ * 以及合法的 settings/plans/sessions/exercises 数据。
+ */
+export function validateExportData(data: unknown): data is ExportData {
+  return ExportDataSchema.safeParse(data).success;
 }

@@ -85,10 +85,6 @@ export const updateSession = (id: string, session: Partial<TrainingSession>) =>
   getRepository().updateSession(id, session);
 export const deleteSession = (id: string) => getRepository().deleteSession(id);
 
-// 获取最近的训练会话
-export const getRecentSessions = (limit: number = 10) =>
-  getRepository().getRecentSessions(limit);
-
 // 动作库相关操作
 export const getAllExercises = () => getRepository().getAllExercises();
 export const addExercise = (exercise: Exercise) => getRepository().addExercise(exercise);
