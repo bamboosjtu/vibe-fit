@@ -1,6 +1,4 @@
 node_modules/
-# Capacitor 生成的原生工程（首次 cap add android 后生成）
-android/
 *.keystore
 *.jks
 local.properties
