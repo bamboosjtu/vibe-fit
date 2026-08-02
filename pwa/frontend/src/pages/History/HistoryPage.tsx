@@ -17,17 +17,21 @@ import {
   ChevronRight as ChevronRightIcon,
   FitnessCenter as StrengthIcon,
   DirectionsRun as CardioIcon,
+  Layers as MixedIcon,
 } from '@mui/icons-material';
 import { useSessionStore, useSettingsStore } from '../../stores';
 import { formatTime, calculateSessionDuration, formatDuration } from '../../utils/helpers';
-import type { TrainingSession } from '../../types';
+import { formatTimer } from '../../domain/sessionTimer';
+import type { TrainingSession, SessionExercise } from '../../types';
+
+type SessionType = 'strength' | 'cardio' | 'mixed';
 
 interface GroupedSessions {
   [key: string]: TrainingSession[];
 }
 
 export function HistoryPage() {
-  const { sessions, initialize, deleteSession, updateSessionNotes } = useSessionStore();
+  const { sessions, initialize, loadSessions, deleteSession, updateSessionNotes } = useSessionStore();
   const { weightUnit } = useSettingsStore();
 
   const [initialized, setInitialized] = useState(false);
@@ -43,26 +47,18 @@ export function HistoryPage() {
     initialize().then(() => setInitialized(true));
   }, [initialize]);
 
-  // 页面获得焦点时重新加载（从其他页面返回时）
+  // 页面获得焦点时重新加载（从训练页返回时），不再使用 2 秒轮询
+  // endSession 完成后 store 已主动调用 loadSessions，此处仅处理页面切换场景
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        initialize();
+        loadSessions();
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [initialize]);
-
-  // 使用定时器轮询，每 2 秒检查一次新数据
-  useEffect(() => {
-    const interval = setInterval(() => {
-      initialize();
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [initialize]);
+  }, [loadSessions]);
 
   // 按日期分组训练记录
   const groupedSessions = useMemo(() => {
@@ -185,38 +181,96 @@ export function HistoryPage() {
     }
   };
 
-  const getTotalSets = (session: TrainingSession): number => {
-    return session.exercises.reduce((total, exercise) => total + exercise.sets.length, 0);
+  // 判断训练类型：strength / cardio / mixed
+  const getSessionType = (session: TrainingSession): SessionType => {
+    const hasStrength = session.exercises.some(e => e.type === 'strength');
+    const hasCardio = session.exercises.some(e => e.type === 'cardio');
+    if (hasStrength && hasCardio) return 'mixed';
+    if (hasCardio) return 'cardio';
+    return 'strength';
   };
 
-  const getExerciseCount = (session: TrainingSession): number => {
-    return session.exercises.length;
-  };
-
-  // 判断是否为有氧训练
-  const isCardioSession = (session: TrainingSession): boolean => {
-    return session.exercises.every(e => e.type === 'cardio');
-  };
-
-  // 获取有氧训练数据
+  // 获取有氧训练数据（从 cardioRecord 读取，而非 sets）
   const getCardioStats = (session: TrainingSession) => {
-    let totalDuration = 0;
+    let totalDurationSeconds = 0;
     let totalDistance = 0;
+    let cardioCount = 0;
 
     session.exercises.forEach(exercise => {
-      exercise.sets.forEach(set => {
-        if (set.duration) totalDuration += set.duration;
-        if (set.distance) totalDistance += set.distance;
-      });
+      if (exercise.type === 'cardio' && exercise.cardioRecord?.status === 'completed') {
+        cardioCount++;
+        totalDurationSeconds += exercise.cardioRecord.elapsedSeconds ?? 0;
+        totalDistance += exercise.cardioRecord.distance ?? 0;
+      }
     });
 
-    return { duration: totalDuration, distance: totalDistance };
+    return { durationSeconds: totalDurationSeconds, distance: totalDistance, count: cardioCount };
+  };
+
+  // 获取力量训练统计
+  const getStrengthStats = (session: TrainingSession) => {
+    let exerciseCount = 0;
+    let totalSets = 0;
+    session.exercises.forEach(exercise => {
+      if (exercise.type === 'strength') {
+        exerciseCount++;
+        totalSets += exercise.sets.length;
+      }
+    });
+    return { exerciseCount, totalSets };
   };
 
   // 渲染训练记录项
   const renderSessionItem = (session: TrainingSession) => {
-    const isCardio = isCardioSession(session);
-    const cardioStats = isCardio ? getCardioStats(session) : null;
+    const sessionType = getSessionType(session);
+    const cardioStats = getCardioStats(session);
+    const strengthStats = getStrengthStats(session);
+
+    // 构建副标题摘要
+    const buildSummary = (): string => {
+      const parts: string[] = [];
+      if (sessionType === 'cardio') {
+        if (cardioStats.count > 0) {
+          parts.push(formatTimer(cardioStats.durationSeconds));
+          if (cardioStats.distance > 0) {
+            parts.push(`${cardioStats.distance.toFixed(1)}公里`);
+          }
+        }
+        return parts.length > 0 ? parts.join(' · ') : `${cardioStats.count}个有氧动作`;
+      }
+      if (sessionType === 'mixed') {
+        parts.push(`${strengthStats.exerciseCount}动作/${strengthStats.totalSets}组`);
+        if (cardioStats.count > 0) {
+          parts.push(formatTimer(cardioStats.durationSeconds));
+        }
+        return parts.join(' · ');
+      }
+      // strength
+      return `${strengthStats.exerciseCount}个动作 · ${strengthStats.totalSets}组`;
+    };
+
+    // 图标和背景色
+    const getIconConfig = () => {
+      switch (sessionType) {
+        case 'cardio':
+          return {
+            icon: <CardioIcon sx={{ color: 'warning.main', fontSize: 18 }} />,
+            bg: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(239, 68, 68, 0.15) 100%)',
+          };
+        case 'mixed':
+          return {
+            icon: <MixedIcon sx={{ color: 'secondary.main', fontSize: 18 }} />,
+            bg: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(245, 158, 11, 0.15) 100%)',
+          };
+        default:
+          return {
+            icon: <StrengthIcon sx={{ color: 'primary.main', fontSize: 18 }} />,
+            bg: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(6, 182, 212, 0.15) 100%)',
+          };
+      }
+    };
+
+    const iconConfig = getIconConfig();
 
     return (
       <Box
@@ -243,38 +297,28 @@ export function HistoryPage() {
                 width: 32,
                 height: 32,
                 borderRadius: '8px',
-                background: isCardio 
-                  ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(239, 68, 68, 0.15) 100%)'
-                  : 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(6, 182, 212, 0.15) 100%)',
+                background: iconConfig.bg,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              {isCardio ? (
-                <CardioIcon sx={{ color: 'warning.main', fontSize: 18 }} />
-              ) : (
-                <StrengthIcon sx={{ color: 'primary.main', fontSize: 18 }} />
-              )}
+              {iconConfig.icon}
             </Box>
-            <Typography 
-              variant="body1" 
+            <Typography
+              variant="body1"
               fontWeight="medium"
               sx={{ fontFamily: '"Poppins", sans-serif' }}
             >
               {session.dayName || '自由训练'}
             </Typography>
           </Box>
-          <Typography 
-            variant="caption" 
+          <Typography
+            variant="caption"
             color="text.secondary"
             sx={{ fontFamily: '"Nunito", sans-serif' }}
           >
-            {isCardio && cardioStats ? (
-              `${cardioStats.duration}分钟 · ${cardioStats.distance}公里`
-            ) : (
-              `${getExerciseCount(session)}个动作 · ${getTotalSets(session)}组`
-            )}
+            {buildSummary()}
           </Typography>
         </Box>
 
@@ -515,28 +559,7 @@ export function HistoryPage() {
 
               {/* 动作详情 */}
               {selectedSession.exercises.map((exercise) => (
-                <Box key={exercise.id} sx={{ mb: 2 }}>
-                  <Typography variant="subtitle1" fontWeight="bold">
-                    {exercise.exerciseName}
-                  </Typography>
-                  {exercise.sets.length > 0 ? (
-                    <Box sx={{ pl: 2 }}>
-                      {exercise.sets.map((set) => (
-                        <Typography key={set.id} variant="body2" color="text.secondary">
-                          第{set.setNumber}组: {set.weight && `${set.weight}${weightUnit} `}
-                          {set.reps && `× ${set.reps}次`}
-                          {set.duration && `${set.duration}分钟`}
-                          {set.distance && ` ${set.distance}km`}
-                          {set.rpe && ` (RPE ${set.rpe})`}
-                        </Typography>
-                      ))}
-                    </Box>
-                  ) : (
-                    <Typography variant="body2" color="text.secondary">
-                      无记录
-                    </Typography>
-                  )}
-                </Box>
+                <ExerciseDetail key={exercise.id} exercise={exercise} weightUnit={weightUnit} />
               ))}
 
               <Divider sx={{ my: 2 }} />
@@ -606,6 +629,87 @@ export function HistoryPage() {
         </DialogActions>
       </Dialog>
     </Box>
+    </Box>
+  );
+}
+
+// 动作详情组件：区分力量和有氧，正确展示 cardioRecord 数据
+function ExerciseDetail({
+  exercise,
+  weightUnit,
+}: {
+  exercise: SessionExercise;
+  weightUnit: 'kg' | 'lb';
+}) {
+  const isCardio = exercise.type === 'cardio';
+  const record = exercise.cardioRecord;
+
+  return (
+    <Box sx={{ mb: 2 }}>
+      <Typography variant="subtitle1" fontWeight="bold">
+        {exercise.exerciseName}
+      </Typography>
+
+      {isCardio ? (
+        // 有氧动作：展示 cardioRecord 摘要
+        <Box sx={{ pl: 2 }}>
+          {record && record.status === 'completed' ? (
+            <>
+              <Typography variant="body2" color="text.secondary">
+                实际时长: {formatTimer(record.elapsedSeconds ?? 0)}
+              </Typography>
+              {record.speed != null && (
+                <Typography variant="body2" color="text.secondary">
+                  速度: {record.speed} km/h
+                </Typography>
+              )}
+              {record.incline != null && (
+                <Typography variant="body2" color="text.secondary">
+                  坡度: {record.incline}
+                </Typography>
+              )}
+              {record.distance != null && (
+                <Typography variant="body2" color="text.secondary">
+                  距离: {record.distance.toFixed(2)} km
+                </Typography>
+              )}
+              {record.calories != null && (
+                <Typography variant="body2" color="text.secondary">
+                  消耗: {record.calories} kcal
+                </Typography>
+              )}
+              {record.rpe != null && (
+                <Typography variant="body2" color="text.secondary">
+                  RPE: {record.rpe}
+                </Typography>
+              )}
+            </>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              未完成
+            </Typography>
+          )}
+        </Box>
+      ) : (
+        // 力量动作：展示组记录
+        <Box sx={{ pl: 2 }}>
+          {exercise.sets.length > 0 ? (
+            exercise.sets.map((set) => (
+              <Typography key={set.id} variant="body2" color="text.secondary">
+                第{set.setNumber}组: {set.weight != null && `${set.weight}${weightUnit} `}
+                {set.reps != null && `× ${set.reps}次`}
+                {set.duration != null && `${set.duration}分钟`}
+                {set.distance != null && ` ${set.distance}km`}
+                {set.rpe != null && ` (RPE ${set.rpe})`}
+              </Typography>
+            ))
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              无记录
+            </Typography>
+          )}
+        </Box>
+      )}
     </Box>
   );
 }

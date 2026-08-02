@@ -10,6 +10,7 @@ import { useSessionStore, usePlanStore } from '../../stores';
 import { ExerciseSelector } from '../../components/ExerciseSelector';
 import { WorkoutIcon } from '../../components/WorkoutArtwork';
 import { TrainingHeader } from './components/TrainingHeader';
+import { TrainingContextCard } from './components/TrainingContextCard';
 import { StrengthSection } from './components/StrengthSection';
 import { CardioSection } from './components/CardioSection';
 import { SessionRecoveryDialog } from './components/SessionRecoveryDialog';
@@ -166,13 +167,18 @@ export function TodayPage() {
         }}
       >
         {trainingMode === 'strength' ? (
-          <StrengthSection
-            todayDay={todayDay}
-            currentPlan={currentPlan}
-            onOpenGroupSelector={handleOpenGroupSelector}
-          />
+          <>
+            <TrainingContextCard todayDay={todayDay} currentPlan={currentPlan} />
+            <StrengthSection
+              todayDay={todayDay}
+              onOpenGroupSelector={handleOpenGroupSelector}
+            />
+          </>
         ) : (
-          <CardioSection />
+          <>
+            <TrainingContextCard todayDay={todayDay} currentPlan={currentPlan} />
+            <CardioSection />
+          </>
         )}
       </Box>
 

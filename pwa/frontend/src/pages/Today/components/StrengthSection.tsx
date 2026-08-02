@@ -1,26 +1,20 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Box, Button, Chip, Typography } from '@mui/material';
+import { Box, Button, Typography } from '@mui/material';
 import {
   AddRounded as AddIcon,
-  CalendarMonthOutlined as CalendarIcon,
   CheckRounded as CheckIcon,
   ExpandMoreRounded as ExpandIcon,
-  LocalFireDepartmentRounded as FireIcon,
-  SwapHorizRounded as SwitchIcon,
-  TimerOutlined as TimerIcon,
 } from '@mui/icons-material';
-import type { ExerciseGroup, TrainingDay, TrainingPhase, TrainingPlan } from '../../../types';
+import type { ExerciseGroup, TrainingDay, TrainingPhase } from '../../../types';
 import { useSessionStore } from '../../../stores';
 import { ExerciseCard } from './ExerciseCard';
 
 interface StrengthSectionProps {
   todayDay: TrainingDay | null;
-  currentPlan: TrainingPlan | null;
   onOpenGroupSelector: (phaseId: string, group: ExerciseGroup) => void;
 }
 
-export function StrengthSection({ todayDay, currentPlan, onOpenGroupSelector }: StrengthSectionProps) {
+export function StrengthSection({ todayDay, onOpenGroupSelector }: StrengthSectionProps) {
   if (!todayDay || !todayDay.phases || todayDay.phases.length === 0) {
     return (
       <Box sx={{ textAlign: 'center', py: 7 }}>
@@ -31,8 +25,6 @@ export function StrengthSection({ todayDay, currentPlan, onOpenGroupSelector }: 
 
   return (
     <Box sx={{ pb: 1 }}>
-      <WorkoutOverview todayDay={todayDay} currentPlan={currentPlan} />
-
       <Box sx={{ display: 'grid', gap: 1.25 }}>
         {todayDay.phases.map((phase, phaseIndex) => (
           <PhaseSection
@@ -41,102 +33,6 @@ export function StrengthSection({ todayDay, currentPlan, onOpenGroupSelector }: 
             phaseIndex={phaseIndex}
             initiallyExpanded={phaseIndex === 0}
             onOpenGroupSelector={onOpenGroupSelector}
-          />
-        ))}
-      </Box>
-    </Box>
-  );
-}
-
-function WorkoutOverview({ todayDay, currentPlan }: { todayDay: TrainingDay; currentPlan: TrainingPlan | null }) {
-  const navigate = useNavigate();
-  const activeSession = useSessionStore(state => state.activeSession);
-  const currentDayIndex = currentPlan?.currentDayIndex ?? 0;
-  const totalDays = currentPlan?.days.length ?? 1;
-  const segmentCount = Math.max(6, totalDays);
-  const targetSets = todayDay.phases.reduce(
-    (phaseTotal, phase) => phaseTotal + phase.groups.reduce((groupTotal, group) => groupTotal + (group.targetTotalSets ?? 3), 0),
-    0,
-  );
-  const estimatedMinutes = Math.max(30, Math.round((targetSets * 2.15) / 5) * 5);
-
-  return (
-    <Box sx={{ pt: 1.5, pb: 2.1 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.8 }}>
-        <FireIcon sx={{ color: '#ff8a00', fontSize: 25 }} />
-        <Typography
-          component="h2"
-          sx={{
-            color: 'text.primary',
-            fontSize: { xs: '1.2rem', sm: '1.5rem' },
-            fontWeight: 900,
-            letterSpacing: '-0.025em',
-          }}
-        >
-          {todayDay.name} · Day {currentDayIndex + 1}
-        </Typography>
-        <Chip
-          size="small"
-          label={activeSession ? '进行中' : '待开始'}
-          sx={{
-            height: 23,
-            borderRadius: '999px',
-            bgcolor: activeSession ? '#07a978' : 'rgba(5,169,120,0.09)',
-            color: activeSession ? '#fff' : '#078763',
-            fontSize: '0.7rem',
-            fontWeight: 800,
-          }}
-        />
-      </Box>
-
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mt: 1.15 }}>
-        <Box sx={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.85, color: 'text.secondary' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.55 }}>
-              <CalendarIcon sx={{ fontSize: 18 }} />
-              <Typography sx={{ fontSize: '0.72rem', whiteSpace: 'nowrap' }}>
-                第 {currentDayIndex + 1} 练 / 共 {totalDays} 练
-              </Typography>
-            </Box>
-            <Box sx={{ width: '1px', height: 14, bgcolor: 'divider' }} />
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.55 }}>
-              <TimerIcon sx={{ fontSize: 18 }} />
-              <Typography sx={{ fontSize: '0.72rem', whiteSpace: 'nowrap' }}>预计 {estimatedMinutes} 分钟</Typography>
-            </Box>
-        </Box>
-
-        <Button
-          variant="outlined"
-          startIcon={<SwitchIcon />}
-          onClick={() => navigate('/plans')}
-          sx={{
-            minWidth: 88,
-            minHeight: 40,
-            flexShrink: 0,
-            borderWidth: '1px !important',
-            borderColor: 'divider',
-            borderRadius: '7px',
-            bgcolor: 'background.paper',
-            color: 'text.primary',
-            px: 1.15,
-            fontSize: '0.72rem',
-            boxShadow: '0 4px 12px rgba(15, 23, 42, 0.07)',
-            '@media (max-width: 374px)': { minWidth: 40, px: 0.9, '& .MuiButton-startIcon': { m: 0 }, fontSize: 0 },
-          }}
-        >
-          切换计划
-        </Button>
-      </Box>
-
-      <Box aria-label="训练计划进度" sx={{ display: 'grid', gridTemplateColumns: `repeat(${segmentCount}, 1fr)`, gap: 0.6, mt: 1.45 }}>
-        {Array.from({ length: segmentCount }, (_, index) => (
-          <Box
-            key={index}
-            sx={{
-              height: 4,
-              borderRadius: '999px',
-              bgcolor: index <= currentDayIndex ? '#05a978' : '#e2e5eb',
-              transition: 'background-color 220ms ease',
-            }}
           />
         ))}
       </Box>

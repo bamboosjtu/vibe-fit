@@ -199,14 +199,19 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
         <Box sx={{ px: 1.25, pb: 1.25, animation: 'todaySectionReveal 180ms ease-out' }}>
           <Box sx={{ height: '1px', bgcolor: 'divider', mb: 0.4 }} />
           <TableHeader />
-          {sets.map(set => (
-            <SetRow
-              key={set.id}
-              set={set}
-              onToggle={() => handleSetToggle(set.id, Boolean(set.completedAt))}
-              onUpdate={updates => updateSet(sessionExercise.id, set.id, updates)}
-            />
-          ))}
+          {sets.map((set, index) => {
+            // 当前组：第一个未完成的组，使用品牌色边框高亮
+            const isCurrent = !set.completedAt && sets.slice(0, index).every(s => Boolean(s.completedAt));
+            return (
+              <SetRow
+                key={set.id}
+                set={set}
+                isCurrent={isCurrent}
+                onToggle={() => handleSetToggle(set.id, Boolean(set.completedAt))}
+                onUpdate={updates => updateSet(sessionExercise.id, set.id, updates)}
+              />
+            );
+          })}
 
           {isThisResting && (
             <RestTimerBar
@@ -300,8 +305,9 @@ function TableHeader() {
   );
 }
 
-function SetRow({ set, onToggle, onUpdate }: {
+function SetRow({ set, isCurrent, onToggle, onUpdate }: {
   set: SetRecord;
+  isCurrent: boolean;
   onToggle: () => void;
   onUpdate: (updates: Partial<SetRecord>) => void;
 }) {
@@ -327,10 +333,11 @@ function SetRow({ set, onToggle, onUpdate }: {
           display: 'grid',
           placeItems: 'center',
           borderRadius: '50%',
-          bgcolor: isCompleted ? '#05a978' : '#e8ebf0',
-          color: isCompleted ? '#fff' : 'text.secondary',
+          bgcolor: isCompleted ? '#05a978' : isCurrent ? 'rgba(5,169,120,0.12)' : '#e8ebf0',
+          color: isCompleted ? '#fff' : isCurrent ? '#078c66' : 'text.secondary',
           fontSize: '0.82rem',
           fontWeight: 900,
+          ...(isCurrent && !isCompleted ? { border: '1.5px solid #05a978' } : {}),
         }}
       >
         {set.setNumber}
@@ -341,7 +348,7 @@ function SetRow({ set, onToggle, onUpdate }: {
         value={set.weight || ''}
         type="number"
         onChange={event => onUpdate({ weight: Number(event.target.value) })}
-        sx={inputStyle(isCompleted)}
+        sx={inputStyle(isCompleted, isCurrent)}
         inputProps={{ 'aria-label': `第 ${set.setNumber} 组重量`, style: { textAlign: 'center', fontWeight: 800 } }}
       />
       <TextField
@@ -350,7 +357,7 @@ function SetRow({ set, onToggle, onUpdate }: {
         value={set.reps || ''}
         type="number"
         onChange={event => onUpdate({ reps: Number(event.target.value) })}
-        sx={inputStyle(isCompleted)}
+        sx={inputStyle(isCompleted, isCurrent)}
         inputProps={{ 'aria-label': `第 ${set.setNumber} 组次数`, style: { textAlign: 'center', fontWeight: 800 } }}
       />
       <IconButton
@@ -363,7 +370,7 @@ function SetRow({ set, onToggle, onUpdate }: {
           placeSelf: 'center',
           borderRadius: '6px',
           bgcolor: isCompleted ? '#05a978' : 'transparent',
-          border: isCompleted ? '1px solid #05a978' : '1.5px solid #d7dbe2',
+          border: isCompleted ? '1px solid #05a978' : isCurrent ? '1.5px solid #05a978' : '1.5px solid #d7dbe2',
           color: isCompleted ? '#fff' : 'transparent',
           '&:hover': { bgcolor: isCompleted ? '#058f68' : 'rgba(5,169,120,0.05)' },
         }}
@@ -394,14 +401,24 @@ const tableGridStyle = {
   py: 0.7,
 };
 
-const inputStyle = (isCompleted: boolean) => ({
+const inputStyle = (isCompleted: boolean, isCurrent: boolean = false) => ({
   minWidth: 0,
   '& .MuiOutlinedInput-root': {
     height: 36,
     borderRadius: '6px',
     bgcolor: isCompleted ? 'rgba(255,255,255,0.78)' : 'background.paper',
     fontSize: '0.86rem',
-    '& fieldset': { borderWidth: '1px', borderColor: '#d8dce3' },
+    '& fieldset': {
+      borderWidth: isCurrent ? '1.5px' : '1px',
+      borderColor: isCurrent ? '#05a978' : '#d8dce3',
+    },
+    '&:hover fieldset': {
+      borderColor: isCurrent ? '#05a978' : '#b8bcc4',
+    },
+    '&.Mui-focused fieldset': {
+      borderWidth: '1.5px',
+      borderColor: '#05a978',
+    },
   },
   '& input': { minWidth: 0, px: 0.5, py: 0.7 },
 });
