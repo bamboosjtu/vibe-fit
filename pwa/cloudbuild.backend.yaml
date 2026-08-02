@@ -1,0 +1,113 @@
+# Cloud Build: Backend + Worker 独立镜像构建与部署
+#
+# 触发方式：
+#   gcloud builds submit --config=cloudbuild.backend.yaml \
+#     --substitutions=_REGION=asia-east1,_REPO=vibe-fit \
+#     pwa/
+#
+# 产出：
+#   - vibe-fit-backend:$BUILD_ID  (api-runtime target)
+#   - vibe-fit-worker:$BUILD_ID   (worker-runtime target)
+#   - 同时标记 :$_COMMIT_SHA
+#
+# 部署到 Cloud Run 时：
+#   - Backend 使用 vibe-fit-backend 镜像，不覆盖 command/args
+#   - Worker 使用 vibe-fit-worker 镜像，不覆盖 command/args
+
+substitutions:
+  _REGION: asia-east1
+  _REPO: vibe-fit
+  _BACKEND_SERVICE: vibe-fit-backend-dev
+  _WORKER_SERVICE: vibe-fit-worker-dev
+  _COMMIT_SHA: latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  # ── 1. 类型检查（一次） ──────────────────────────────────
+  - id: backend-typecheck
+    name: node:20-alpine
+    dir: backend
+    entrypoint: sh
+    args:
+      - -c
+      - |
+        npm ci
+        npm run typecheck
+
+  # ── 2. 构建 Backend 镜像（api-runtime） ──────────────────
+  - id: build-backend-image
+    name: gcr.io/cloud-builders/docker
+    dir: backend
+    args:
+      - build
+      - --target=api-runtime
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/vibe-fit-backend:$BUILD_ID
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/vibe-fit-backend:${_COMMIT_SHA}
+      - .
+
+  # ── 3. 构建 Worker 镜像（worker-runtime） ────────────────
+  - id: build-worker-image
+    name: gcr.io/cloud-builders/docker
+    dir: backend
+    args:
+      - build
+      - --target=worker-runtime
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/vibe-fit-worker:$BUILD_ID
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/vibe-fit-worker:${_COMMIT_SHA}
+      - .
+
+  # ── 4. 推送 Backend 镜像 ─────────────────────────────────
+  - id: push-backend-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/vibe-fit-backend:$BUILD_ID
+
+  # ── 5. 推送 Worker 镜像 ──────────────────────────────────
+  - id: push-worker-image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/vibe-fit-worker:$BUILD_ID
+
+  # ── 6. 部署 Backend 到 Cloud Run ─────────────────────────
+  #    使用 Backend 镜像，不覆盖 command/args
+  - id: deploy-backend
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_BACKEND_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/vibe-fit-backend:$BUILD_ID
+      - --region=${_REGION}
+      - --platform=managed
+      - --no-allow-unauthenticated
+      - --set-env-vars=NODE_ENV=production,AUTH_MODE=email,DATA_MODE=postgres,EVENT_PUBLISHER=local,LOG_PRETTY=false
+
+  # ── 7. 部署 Worker 到 Cloud Run ──────────────────────────
+  #    使用 Worker 镜像，不覆盖 command/args
+  #    Worker 镜像自带 CMD ["node", "dist/worker.js"]
+  - id: deploy-worker
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_WORKER_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/vibe-fit-worker:$BUILD_ID
+      - --region=${_REGION}
+      - --platform=managed
+      - --no-allow-unauthenticated
+      - --set-env-vars=NODE_ENV=production,AUTH_MODE=mock,DATA_MODE=mock,EVENT_PUBLISHER=mock,LOG_PRETTY=false
+
+# 登记两个镜像
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/vibe-fit-backend:$BUILD_ID
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/vibe-fit-worker:$BUILD_ID

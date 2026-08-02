@@ -4,14 +4,16 @@
 #   docker compose up -d --build
 #
 # 访问地址：
-#   前端：   http://localhost:8081
-#   后端 API：http://localhost:8080
-#   Postgres：localhost:5432 (vibefit / vibefit_dev_password / vibefit_dev)
+#   Caddy HTTPS（推荐）：https://localhost 或 https://<局域网IP>
+#   前端直连：           http://localhost:8081
+#   后端 API 直连：      http://localhost:8080
+#   Postgres：           localhost:5432 (vibefit / vibefit_dev_password / vibefit_dev)
 #
-# 说明：本地部署默认使用邮箱验证码登录、postgres 数据库、本地 worker 事件处理，
-#       全部服务运行在本地 Docker，不依赖任何云服务。
-#       数据库 schema 固定为版本 1，由 backend 启动时通过 entrypoint 脚本执行
-#       prisma migrate deploy 初始化，无需独立迁移服务。
+# 说明：
+#   - Caddy 作为 HTTPS 网关，在 :443 终止 TLS，按路径分流到 frontend / backend
+#   - 前端 nginx 也反向代理 /api/* → backend，支持直连模式下的同源访问
+#   - 数据库 schema 固定为版本 1，由 backend 启动时通过 psql 脚本初始化
+#   - Backend 与 Worker 使用独立 Docker build target，构建产物隔离
 
 services:
   postgres:
@@ -34,9 +36,8 @@ services:
   backend:
     build:
       context: ./backend
+      target: api-runtime
     container_name: vibefit-backend
-    # 从 backend/.env 加载 SMTP 等配置（由用户填写 163 邮箱凭据）。
-    # environment 段中的容器网络相关变量会覆盖 .env 中的同名项。
     env_file:
       ./backend/.env
     environment:
@@ -47,7 +48,7 @@ services:
       EVENT_PUBLISHER: local
       DATABASE_URL: postgres://vibefit:vibefit_dev_password@postgres:5432/vibefit_dev
       JWT_SECRET: dev-only-secret
-      CORS_ORIGIN: http://localhost:8081,http://localhost:8080,http://localhost:5173,http://127.0.0.1:8081,http://127.0.0.1:8080,http://127.0.0.1:5173
+      CORS_ORIGIN: https://localhost,https://127.0.0.1,http://localhost:8081,http://127.0.0.1:8081,http://localhost:8080,http://127.0.0.1:8080
       LOG_PRETTY: "false"
       WORKER_PUSH_URL: http://worker:8080/pubsub/backups
     ports:
@@ -57,13 +58,12 @@ services:
         condition: service_healthy
 
   # 本地事件 worker：接收 backend 通过 HTTP push 推来的 backup.created 事件
-  # worker 使用 mock 数据模式，不连接数据库，故覆盖 entrypoint 直接启动 node
+  # 使用独立 worker-runtime build target，不含 Prisma Client 和数据库相关代码
   worker:
     build:
       context: ./backend
+      target: worker-runtime
     container_name: vibefit-worker
-    entrypoint: ["node"]
-    command: ["dist/worker.js"]
     environment:
       NODE_ENV: production
       PORT: "8080"
@@ -80,8 +80,8 @@ services:
     build:
       context: ./frontend
       args:
-        # 浏览器访问后端的地址（构建期注入）
-        VITE_API_BASE_URL: http://localhost:8080
+        # 不设置 VITE_API_BASE_URL → 前端使用同源相对路径
+        # 通过 Caddy 或前端 nginx 反向代理访问后端，无需 CORS
         VITE_AUTH_MODE: email
     container_name: vibefit-frontend
     ports:
@@ -89,5 +89,23 @@ services:
     depends_on:
       - backend
 
+  # Caddy HTTPS 网关：家庭局域网 HTTPS 入口
+  # 自动生成本地 CA 证书（tls internal），浏览器首次访问需信任
+  caddy:
+    image: caddy:2-alpine
+    container_name: vibefit-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+
 volumes:
   vibe_fit_pg_data:
+  caddy_data:
+  caddy_config:

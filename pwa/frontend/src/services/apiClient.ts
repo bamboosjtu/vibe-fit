@@ -1,7 +1,8 @@
 import { useAuthStore } from "../stores/authStore";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+// 空字符串表示同源相对路径（通过 nginx 或 Caddy 反向代理访问后端）。
+// 显式设置 VITE_API_BASE_URL 时使用绝对 URL（直连后端模式）。
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
 function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};

@@ -1,0 +1,26 @@
+{
+    admin off
+}
+
+# HTTP → HTTPS 重定向
+:80 {
+    redir https://{host}{uri} permanent
+}
+
+# HTTPS 网关（家庭局域网）
+# tls internal 自动生成本地 CA 证书，浏览器首次访问需信任
+# 站点地址显式声明 localhost 与 127.0.0.1，Caddy 才会为这些主机名签发证书
+https://localhost, https://127.0.0.1 {
+    tls internal
+
+    # API 与健康检查路由 → backend
+    @api path /api/* /health
+    handle @api {
+        reverse_proxy backend:8080
+    }
+
+    # 其余请求 → frontend（含 SPA 路由、静态资源、Service Worker）
+    handle {
+        reverse_proxy frontend:80
+    }
+}
