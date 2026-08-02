@@ -1,0 +1,192 @@
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+  <defs>
+    <style>
+      .vf-line{fill:none;stroke:#303741;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round}
+      .vf-thin{fill:none;stroke:#303741;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+      .vf-body{fill:#303741}
+      .vf-accent{fill:#23b889}
+      .vf-soft{fill:#23b889;opacity:.14}
+    </style>
+  </defs>
+
+  <symbol id="ex-press-flat" viewBox="0 0 96 96">
+    <path class="vf-line" d="M13 24h70M21 24v13M75 24v13M28 62h42M34 74h28M37 62v12M65 62v12"/>
+    <path class="vf-thin" d="M21 24h-8M83 24h-8M29 20v8M67 20v8"/>
+    <circle class="vf-body" cx="34" cy="45" r="5"/>
+    <path class="vf-line" d="m39 47 18 8 12 5M39 51l9 7 11-8M46 57l-9 5M58 56l9 5"/>
+    <path class="vf-accent" d="M42 48c5 0 9 2 12 5l-7 6-9-7Z"/>
+  </symbol>
+
+  <symbol id="ex-press-incline" viewBox="0 0 96 96">
+    <path class="vf-line" d="M12 25h72M20 25v12M76 25v12M27 69h45M34 73l18-22 18 12M36 69v8M69 63v14"/>
+    <path class="vf-thin" d="M20 25h-8M84 25h-8M30 21v8M66 21v8"/>
+    <circle class="vf-body" cx="43" cy="45" r="5"/>
+    <path class="vf-line" d="m47 48 13 8 9 5M48 51l8 7 8-7M51 58l-8 11M60 58l9 5"/>
+    <path class="vf-accent" d="m49 49 11 7-6 7-10-9Z"/>
+  </symbol>
+
+  <symbol id="ex-fly" viewBox="0 0 96 96">
+    <path class="vf-line" d="M14 26h68M20 26v11M76 26v11M27 63h42M34 74h28M37 63v11M65 63v11"/>
+    <circle class="vf-body" cx="48" cy="44" r="5"/>
+    <path class="vf-line" d="M48 49v14M47 52 28 42M49 52l19-10M28 42l-9-4M68 42l9-4M42 63l-8 10M54 63l8 10"/>
+    <path class="vf-accent" d="M42 51h12v12H42Z"/>
+  </symbol>
+
+  <symbol id="ex-push-up" viewBox="0 0 96 96">
+    <path class="vf-line" d="M12 75h72M22 68l18-21 26 10 12 18M39 47l-9 27M65 57l-5 17"/>
+    <circle class="vf-body" cx="43" cy="39" r="5"/>
+    <path class="vf-accent" d="m43 47 16 6-5 10-17-7Z"/>
+  </symbol>
+
+  <symbol id="ex-pull-up" viewBox="0 0 96 96">
+    <path class="vf-line" d="M15 17h66M21 17v62M75 17v62M31 76h34"/>
+    <circle class="vf-body" cx="48" cy="38" r="5"/>
+    <path class="vf-line" d="M48 43v22M31 24l17 17 17-17M39 65l-9 12M57 65l9 12"/>
+    <path class="vf-accent" d="M42 45h12v16H42Z"/>
+  </symbol>
+
+  <symbol id="ex-lat-pulldown" viewBox="0 0 96 96">
+    <path class="vf-line" d="M17 16h62M22 16v64M74 16v64M34 74h28M38 63h20"/>
+    <path class="vf-thin" d="M31 25h34M48 16v9"/>
+    <circle class="vf-body" cx="48" cy="40" r="5"/>
+    <path class="vf-line" d="M48 45v18M33 30l15 16 15-16M39 63l-7 11M57 63l7 11"/>
+    <path class="vf-accent" d="M42 47h12v14H42Z"/>
+  </symbol>
+
+  <symbol id="ex-row" viewBox="0 0 96 96">
+    <path class="vf-line" d="M13 74h70M19 63h29M58 47h18M72 47l8 27"/>
+    <circle class="vf-body" cx="31" cy="38" r="5"/>
+    <path class="vf-line" d="m35 41 19 12 17-9M43 49l-8 14M53 54l8 19M35 63l-11 11"/>
+    <path class="vf-accent" d="m38 43 14 9-6 8-13-12Z"/>
+  </symbol>
+
+  <symbol id="ex-shoulder-press" viewBox="0 0 96 96">
+    <path class="vf-line" d="M18 25h60M23 20v10M73 20v10M31 51l17-15 17 15M48 53v22M37 76h22"/>
+    <circle class="vf-body" cx="48" cy="47" r="5"/>
+    <circle class="vf-accent" cx="39" cy="57" r="5"/>
+    <circle class="vf-accent" cx="57" cy="57" r="5"/>
+  </symbol>
+
+  <symbol id="ex-lateral-raise" viewBox="0 0 96 96">
+    <circle class="vf-body" cx="48" cy="31" r="5"/>
+    <path class="vf-line" d="M48 36v23M47 41 26 52M49 41l21 11M26 52l-8-2M70 52l8-2M41 59l-8 18M55 59l8 18"/>
+    <circle class="vf-accent" cx="22" cy="51" r="5"/>
+    <circle class="vf-accent" cx="74" cy="51" r="5"/>
+    <path class="vf-line" d="M20 78h56"/>
+  </symbol>
+
+  <symbol id="ex-rear-delt" viewBox="0 0 96 96">
+    <circle class="vf-body" cx="35" cy="34" r="5"/>
+    <path class="vf-line" d="m39 37 17 13 19-6M55 50l-8 17M56 50l9 17M47 67l-12 10M65 67l10 10M41 42l-18 8M23 50l-7 2M75 44l7-2M13 78h70"/>
+    <path class="vf-accent" d="m42 40 13 9-6 9-13-12Z"/>
+  </symbol>
+
+  <symbol id="ex-curl" viewBox="0 0 96 96">
+    <circle class="vf-body" cx="42" cy="31" r="5"/>
+    <path class="vf-line" d="M42 36v22M41 42l-13 13M43 42l18 10M28 55l-7-8M61 52l8-9M35 58l-8 19M49 58l9 19M18 78h58"/>
+    <path class="vf-thin" d="M15 43h12M65 39h12"/>
+    <path class="vf-accent" d="M36 39h12v18H36Z"/>
+  </symbol>
+
+  <symbol id="ex-triceps" viewBox="0 0 96 96">
+    <path class="vf-line" d="M61 16h18M70 16v20M56 36h28M70 36v10"/>
+    <circle class="vf-body" cx="39" cy="31" r="5"/>
+    <path class="vf-line" d="M39 36v23M40 42l15 7 15-3M55 49l10 12M70 46l4 16M32 59l-8 19M46 59l9 19M18 79h61"/>
+    <path class="vf-accent" d="m43 40 12 7-5 11-13-11Z"/>
+  </symbol>
+
+  <symbol id="ex-squat" viewBox="0 0 96 96">
+    <path class="vf-line" d="M18 23h60M23 18v10M73 18v10"/>
+    <circle class="vf-body" cx="45" cy="35" r="5"/>
+    <path class="vf-line" d="M47 40 58 52 70 59M57 51 43 63M43 63 27 63M27 63l-8 14M70 59l7 18M30 79h52"/>
+    <path class="vf-accent" d="m49 42 10 10-8 9-11-13Z"/>
+  </symbol>
+
+  <symbol id="ex-hinge" viewBox="0 0 96 96">
+    <path class="vf-line" d="M18 75h60M24 66h48M24 62v8M72 62v8"/>
+    <circle class="vf-body" cx="38" cy="31" r="5"/>
+    <path class="vf-line" d="m42 34 20 13 10 19M55 43l-9 20M46 63l-8 13M72 66l5 10M31 76h50"/>
+    <path class="vf-accent" d="m44 36 15 10-6 10-15-12Z"/>
+  </symbol>
+
+  <symbol id="ex-lunge" viewBox="0 0 96 96">
+    <circle class="vf-body" cx="45" cy="26" r="5"/>
+    <path class="vf-line" d="M45 31v22M44 38 30 47M46 38l15 9M38 53 23 65M23 65l-8 12M50 53l19 13M69 66l12 11M13 79h72"/>
+    <path class="vf-accent" d="M39 34h12v18H39Z"/>
+  </symbol>
+
+  <symbol id="ex-calf" viewBox="0 0 96 96">
+    <path class="vf-line" d="M20 76h58M59 18v58M32 69h27"/>
+    <circle class="vf-body" cx="41" cy="29" r="5"/>
+    <path class="vf-line" d="M41 34v22M34 40h14M35 56l-7 17M47 56l6 17M28 73l-7 3M53 73l8 3"/>
+    <path class="vf-accent" d="M35 37h12v18H35Z"/>
+  </symbol>
+
+  <symbol id="ex-core-floor" viewBox="0 0 96 96">
+    <path class="vf-line" d="M14 74h68M27 63h39"/>
+    <circle class="vf-body" cx="34" cy="42" r="5"/>
+    <path class="vf-line" d="m39 44 20 8 15 20M34 48 23 72M50 50l-8 22"/>
+    <path class="vf-accent" d="m42 46 13 5-4 10-14-6Z"/>
+  </symbol>
+
+  <symbol id="ex-core-hanging" viewBox="0 0 96 96">
+    <path class="vf-line" d="M15 16h66M22 16v63M74 16v63"/>
+    <circle class="vf-body" cx="48" cy="37" r="5"/>
+    <path class="vf-line" d="M48 42v21M38 23l10 18 10-18M48 63l-13 9M48 63l13 9M35 72h26"/>
+    <path class="vf-accent" d="M42 45h12v16H42Z"/>
+  </symbol>
+
+  <symbol id="ex-treadmill" viewBox="0 0 96 96">
+    <path class="vf-line" d="M17 75h65M23 65h51l8 10M70 21h12v54M70 29l-8 15"/>
+    <circle class="vf-body" cx="48" cy="31" r="5"/>
+    <path class="vf-line" d="m51 35 10 12-12 12M54 45l-16 8M49 59l-14 15M49 59l14 13"/>
+    <path class="vf-accent" d="m52 38 9 9-8 10-9-13Z"/>
+  </symbol>
+
+  <symbol id="ex-elliptical" viewBox="0 0 96 96">
+    <path class="vf-line" d="M17 77h65M31 67c8-9 25-9 34 0M30 67l-8 10M66 67l9 10M65 20l-9 29M32 20l8 29"/>
+    <circle class="vf-body" cx="48" cy="31" r="5"/>
+    <path class="vf-line" d="M48 36v22M44 43l-12-9M52 43l13-9M43 58l-9 12M53 58l9 12"/>
+    <path class="vf-accent" d="M42 39h12v18H42Z"/>
+  </symbol>
+
+  <symbol id="ex-bike" viewBox="0 0 96 96">
+    <circle class="vf-line" cx="26" cy="68" r="13"/>
+    <circle class="vf-line" cx="70" cy="68" r="13"/>
+    <path class="vf-line" d="M26 68l18-26 10 26H26l16-15h20M44 42h13M61 36h12"/>
+    <circle class="vf-body" cx="49" cy="28" r="5"/>
+    <path class="vf-line" d="m49 33 10 12 12-2M58 45l-4 23M46 42l-7 17"/>
+    <path class="vf-accent" d="m50 36 9 9-6 9-9-12Z"/>
+  </symbol>
+
+  <symbol id="ex-rower" viewBox="0 0 96 96">
+    <path class="vf-line" d="M12 76h72M18 66h32M58 49h18M73 49l7 27M24 66l-7 10"/>
+    <circle class="vf-body" cx="34" cy="39" r="5"/>
+    <path class="vf-line" d="m38 42 17 12 17-8M48 50l-9 16M55 54l8 21M39 66l-12 10"/>
+    <path class="vf-accent" d="m40 44 13 9-6 8-13-12Z"/>
+  </symbol>
+
+  <symbol id="ex-stairs" viewBox="0 0 96 96">
+    <path class="vf-line" d="M15 77h18V65h17V53h17V41h15M68 16h14v61"/>
+    <circle class="vf-body" cx="49" cy="27" r="5"/>
+    <path class="vf-line" d="M49 32v21M44 39l-9 10M54 39l13 4M43 53l-9 12M54 53l12 12"/>
+    <path class="vf-accent" d="M43 35h12v17H43Z"/>
+  </symbol>
+
+  <symbol id="ex-jump-rope" viewBox="0 0 96 96">
+    <circle class="vf-body" cx="48" cy="25" r="5"/>
+    <path class="vf-line" d="M48 30v24M42 37l-15 11M54 37l15 11M42 54l-9 20M54 54l9 20M27 48c-15 13-13 31 3 34M69 48c15 13 13 31-3 34"/>
+    <path class="vf-accent" d="M42 33h12v20H42Z"/>
+  </symbol>
+
+  <symbol id="ex-generic-strength" viewBox="0 0 96 96">
+    <path class="vf-line" d="M13 48h70M21 35v26M75 35v26M31 40v16M65 40v16"/>
+    <circle class="vf-accent" cx="48" cy="48" r="8"/>
+  </symbol>
+
+  <symbol id="ex-generic-cardio" viewBox="0 0 96 96">
+    <circle class="vf-soft" cx="48" cy="48" r="25"/>
+    <path class="vf-line" d="M48 24v15l12 8M28 68c9 9 29 11 41-3M29 28l-7 8M67 28l7 8"/>
+    <circle class="vf-accent" cx="48" cy="48" r="5"/>
+  </symbol>
+</svg>
