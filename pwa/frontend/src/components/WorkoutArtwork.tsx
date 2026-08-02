@@ -18,43 +18,72 @@ interface WorkoutIconProps {
 }
 
 const exactArtworkMap: Record<string, ArtworkKind> = {
+  // 胸
   'bench-press': 'press',
   'machine-chest-press': 'press',
+  'pec-deck': 'press',
+  'cable-crossover': 'press',
+  'cable-crossover-lower': 'press',
+  'cable-crossover-decline': 'press',
+  'decline-machine-press': 'press',
+  'decline-press': 'press',
+  'dips': 'press',
   'incline-press': 'press',
   'incline-machine-press': 'press',
-  'pec-deck': 'press',
-  'incline-bench-press': 'press',
-  'incline-dumbbell-press': 'press',
-  'dumbbell-fly': 'press',
-  'chest-press-machine': 'press',
-  'push-up': 'press',
+  'incline-cable-crossover': 'press',
+
+  // 背
   'pull-up': 'pull',
   'lat-pulldown': 'pull',
+  'machine-pulldown': 'pull',
   'straight-arm-pulldown': 'pull',
   'barbell-row': 'row',
-  'dumbbell-row': 'row',
+  't-bar-row': 'row',
   'seated-cable-row': 'row',
+  'dumbbell-row': 'row',
   'rowing-machine': 'row',
-  'face-pull': 'shoulders',
-  'overhead-press': 'shoulders',
-  'dumbbell-shoulder-press': 'shoulders',
+
+  // 肩
+  'shoulder-press': 'shoulders',
+  'front-raise': 'shoulders',
   'lateral-raise': 'shoulders',
+  'upright-row': 'shoulders',
+  'rear-delt-fly': 'shoulders',
+  'reverse-pec-deck': 'shoulders',
+  'cable-rear-delt': 'shoulders',
+  'seated-row-rear-delt': 'shoulders',
+
+  // 手臂
   'barbell-curl': 'arms',
   'dumbbell-curl': 'arms',
-  'hammer-curl': 'arms',
-  'tricep-pushdown': 'arms',
-  squat: 'legs',
-  'leg-press': 'legs',
+  'concentration-curl': 'arms',
+  'machine-curl': 'arms',
+  'preacher-curl': 'arms',
+  'tricep-pushdown-bar': 'arms',
+  'tricep-pushdown-rope': 'arms',
+  'overhead-tricep': 'arms',
+  'skull-crusher': 'arms',
+  'close-grip-bench': 'arms',
+
+  // 腿臀
+  'squat': 'legs',
   'leg-extension': 'legs',
+  'romanian-deadlift': 'legs',
   'leg-curl': 'legs',
-  'hip-thrust': 'legs',
-  plank: 'core',
-  crunch: 'core',
-  treadmill: 'cardio',
-  elliptical: 'cardio',
-  'stationary-bike': 'cardio',
-  'stair-climber': 'cardio',
-  'jump-rope': 'cardio',
+  'machine-hip-thrust': 'legs',
+  'barbell-hip-thrust': 'legs',
+  'hack-squat': 'legs',
+  'leg-press': 'legs',
+  'lunges': 'legs',
+  'smith-squat': 'legs',
+
+  // 腹
+  'crunch': 'core',
+  'hanging-leg-raise': 'core',
+
+  // 有氧
+  'treadmill': 'cardio',
+  'elliptical': 'cardio',
 };
 
 function inferArtworkKind({ exerciseId, exerciseName = '', type, muscleGroups = [] }: ExerciseArtworkProps): ArtworkKind {

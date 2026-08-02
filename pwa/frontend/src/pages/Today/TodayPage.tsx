@@ -267,8 +267,9 @@ export function TodayPage() {
       </Paper>
 
       {selectedGroupContext && (
-        <ExerciseSelector 
+        <ExerciseSelector
           open={showGroupSelector}
+          group={selectedGroupContext.group}
           onClose={() => {
             setShowGroupSelector(false);
             setSelectedGroupContext(null);
@@ -279,8 +280,8 @@ export function TodayPage() {
 
             // 添加动作
             addExercise(
-              exercise, 
-              selectedGroupContext.phaseId, 
+              exercise,
+              selectedGroupContext.phaseId,
               selectedGroupContext.group.id
             );
 

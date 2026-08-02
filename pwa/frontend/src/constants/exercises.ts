@@ -1,87 +1,89 @@
 import type { Exercise } from '../types';
 
+// 动作库：按身体部位/肌群分类，与训练计划模板的 phase/group 结构对应
 export const DEFAULT_EXERCISES: Exercise[] = [
-  // 胸部
-  { id: 'bench-press', name: '杠铃卧推', type: 'strength', muscleGroups: ['胸部', '肱三头'] },
-  { id: 'incline-bench-press', name: '上斜杠铃卧推', type: 'strength', muscleGroups: ['胸部', '肱三头'] },
-  { id: 'dumbbell-fly', name: '哑铃飞鸟', type: 'strength', muscleGroups: ['胸部'] },
-  { id: 'incline-dumbbell-press', name: '上斜哑铃卧推', type: 'strength', muscleGroups: ['胸部', '肱三头'] },
-  { id: 'cable-crossover', name: '绳索夹胸', type: 'strength', muscleGroups: ['胸部'] },
-  { id: 'chest-press-machine', name: '器械推胸', type: 'strength', muscleGroups: ['胸部', '肱三头'] },
-  { id: 'push-up', name: '俯卧撑', type: 'strength', muscleGroups: ['胸部', '肱三头'] },
-  
-  // 背部
-  { id: 'deadlift', name: '硬拉', type: 'strength', muscleGroups: ['背部', '腿臀'] },
-  { id: 'pull-up', name: '引体向上', type: 'strength', muscleGroups: ['背部', '肱二头'] },
-  { id: 'lat-pulldown', name: '高位下拉', type: 'strength', muscleGroups: ['背部', '肱二头'] },
-  { id: 'barbell-row', name: '杠铃划船', type: 'strength', muscleGroups: ['背部', '肱二头'] },
-  { id: 'dumbbell-row', name: '哑铃划船', type: 'strength', muscleGroups: ['背部', '肱二头'] },
-  { id: 'seated-cable-row', name: '坐姿划船', type: 'strength', muscleGroups: ['背部', '肱二头'] },
-  { id: 't-bar-row', name: 'T杆划船', type: 'strength', muscleGroups: ['背部', '肱二头'] },
-  { id: 'face-pull', name: '面拉', type: 'strength', muscleGroups: ['肩后束'] },
-  { id: 'straight-arm-pulldown', name: '直臂下压', type: 'strength', muscleGroups: ['背部'] },
-  
-  // 肩部
-  { id: 'overhead-press', name: '杠铃推举', type: 'strength', muscleGroups: ['肩前束', '肱三头'] },
-  { id: 'dumbbell-shoulder-press', name: '哑铃推举', type: 'strength', muscleGroups: ['肩前束', '肱三头'] },
-  { id: 'lateral-raise', name: '侧平举', type: 'strength', muscleGroups: ['肩中束'] },
-  { id: 'front-raise', name: '前平举', type: 'strength', muscleGroups: ['肩前束'] },
-  { id: 'rear-delt-fly', name: '俯身飞鸟', type: 'strength', muscleGroups: ['肩后束'] },
-  { id: 'upright-row', name: '直立划船', type: 'strength', muscleGroups: ['肩部', '斜方肌'] },
-  { id: 'arnold-press', name: '阿诺德推举', type: 'strength', muscleGroups: ['肩部', '肱三头'] },
-  
-  // 手臂 - 肱二头
-  { id: 'barbell-curl', name: '杠铃弯举', type: 'strength', muscleGroups: ['肱二头'] },
+  // ── 背 - 下拉 ──────────────────────────────────────────
+  { id: 'pull-up', name: '引体向上', type: 'strength', muscleGroups: ['背', '肱二头'] },
+  { id: 'lat-pulldown', name: '高位下拉', type: 'strength', muscleGroups: ['背', '肱二头'] },
+  { id: 'machine-pulldown', name: '器械下拉', type: 'strength', muscleGroups: ['背', '肱二头'] },
+
+  // ── 背 - 划船 ──────────────────────────────────────────
+  { id: 'barbell-row', name: '杠铃俯身划船', type: 'strength', muscleGroups: ['背', '肱二头'] },
+  { id: 't-bar-row', name: 'T杆俯身划船', type: 'strength', muscleGroups: ['背', '肱二头'] },
+  { id: 'seated-cable-row', name: '坐姿器械划船', type: 'strength', muscleGroups: ['背', '肱二头'] },
+  { id: 'dumbbell-row', name: '单边哑铃划船', type: 'strength', muscleGroups: ['背', '肱二头'] },
+  { id: 'straight-arm-pulldown', name: '龙门架直臂下压', type: 'strength', muscleGroups: ['背'] },
+
+  // ── 肩后束 ─────────────────────────────────────────────
+  { id: 'rear-delt-fly', name: '哑铃俯身飞鸟', type: 'strength', muscleGroups: ['肩后束'] },
+  { id: 'reverse-pec-deck', name: '蝴蝶机反向飞鸟', type: 'strength', muscleGroups: ['肩后束'] },
+  { id: 'cable-rear-delt', name: '龙门架反向飞鸟', type: 'strength', muscleGroups: ['肩后束'] },
+  { id: 'seated-row-rear-delt', name: '坐姿器械/绳索划船（水平开肘）', type: 'strength', muscleGroups: ['肩后束'] },
+
+  // ── 肱二头 ─────────────────────────────────────────────
   { id: 'dumbbell-curl', name: '哑铃弯举', type: 'strength', muscleGroups: ['肱二头'] },
-  { id: 'hammer-curl', name: '锤式弯举', type: 'strength', muscleGroups: ['肱二头', '肱肌'] },
-  { id: 'preacher-curl', name: '牧师凳弯举', type: 'strength', muscleGroups: ['肱二头'] },
-  { id: 'incline-dumbbell-curl', name: '上斜哑铃弯举', type: 'strength', muscleGroups: ['肱二头'] },
-  { id: 'cable-curl', name: '绳索弯举', type: 'strength', muscleGroups: ['肱二头'] },
-  
-  // 手臂 - 肱三头
-  { id: 'tricep-pushdown', name: '绳索下压', type: 'strength', muscleGroups: ['肱三头'] },
-  { id: 'skull-crusher', name: '碎颅者', type: 'strength', muscleGroups: ['肱三头'] },
-  { id: 'overhead-tricep-extension', name: '颈后臂屈伸', type: 'strength', muscleGroups: ['肱三头'] },
-  { id: 'close-grip-bench', name: '窄距卧推', type: 'strength', muscleGroups: ['肱三头', '胸部'] },
-  { id: 'dumbbell-kickback', name: '哑铃臂屈伸', type: 'strength', muscleGroups: ['肱三头'] },
-  { id: 'dips', name: '双杠臂屈伸', type: 'strength', muscleGroups: ['肱三头', '胸部'] },
-  
-  // 腿部
-  { id: 'squat', name: '深蹲', type: 'strength', muscleGroups: ['腿部', '臀部'] },
-  { id: 'front-squat', name: '前蹲', type: 'strength', muscleGroups: ['腿部', '臀部'] },
-  { id: 'leg-press', name: '腿举', type: 'strength', muscleGroups: ['腿部', '臀部'] },
-  { id: 'leg-extension', name: '腿屈伸', type: 'strength', muscleGroups: ['股四头'] },
-  { id: 'leg-curl', name: '腿弯举', type: 'strength', muscleGroups: ['腘绳肌'] },
-  { id: 'romanian-deadlift', name: '罗马尼亚硬拉', type: 'strength', muscleGroups: ['腘绳肌', '臀部'] },
-  { id: 'lunges', name: '箭步蹲', type: 'strength', muscleGroups: ['腿部', '臀部'] },
-  { id: 'bulgarian-split-squat', name: '保加利亚分腿蹲', type: 'strength', muscleGroups: ['腿部', '臀部'] },
-  { id: 'calf-raise', name: '提踵', type: 'strength', muscleGroups: ['小腿'] },
-  { id: 'hip-thrust', name: '臀推', type: 'strength', muscleGroups: ['臀部'] },
-  
-  // 核心
-  { id: 'plank', name: '平板支撑', type: 'strength', muscleGroups: ['核心'] },
-  { id: 'crunch', name: '卷腹', type: 'strength', muscleGroups: ['腹部'] },
-  { id: 'leg-raise', name: '举腿', type: 'strength', muscleGroups: ['腹部'] },
-  { id: 'russian-twist', name: '俄罗斯转体', type: 'strength', muscleGroups: ['腹部', '腹斜肌'] },
-  { id: 'hanging-leg-raise', name: '悬垂举腿', type: 'strength', muscleGroups: ['腹部'] },
-  { id: 'ab-wheel', name: '健腹轮', type: 'strength', muscleGroups: ['腹部'] },
-  
-  // 有氧
+  { id: 'barbell-curl', name: '杠铃弯举', type: 'strength', muscleGroups: ['肱二头'] },
+  { id: 'concentration-curl', name: '集中弯举', type: 'strength', muscleGroups: ['肱二头'] },
+  { id: 'machine-curl', name: '器械弯举', type: 'strength', muscleGroups: ['肱二头'] },
+  { id: 'preacher-curl', name: '牧师椅弯举', type: 'strength', muscleGroups: ['肱二头'] },
+
+  // ── 胸 - 中胸 ──────────────────────────────────────────
+  { id: 'bench-press', name: '杠铃/哑铃/史密斯卧推（水平推）', type: 'strength', muscleGroups: ['胸', '肱三头'] },
+  { id: 'machine-chest-press', name: '器械推胸（水平推）', type: 'strength', muscleGroups: ['胸', '肱三头'] },
+  { id: 'pec-deck', name: '蝴蝶机夹胸', type: 'strength', muscleGroups: ['胸'] },
+  { id: 'cable-crossover', name: '龙门架夹胸（水平夹）', type: 'strength', muscleGroups: ['胸'] },
+
+  // ── 胸 - 下胸 ──────────────────────────────────────────
+  { id: 'cable-crossover-lower', name: '龙门架夹胸（完全下夹）', type: 'strength', muscleGroups: ['胸'] },
+  { id: 'cable-crossover-decline', name: '龙门架夹胸（下斜夹）', type: 'strength', muscleGroups: ['胸'] },
+  { id: 'decline-machine-press', name: '器械推胸（下斜推）', type: 'strength', muscleGroups: ['胸', '肱三头'] },
+  { id: 'decline-press', name: '杠铃/哑铃/史密斯卧推（下斜推）', type: 'strength', muscleGroups: ['胸', '肱三头'] },
+  { id: 'dips', name: '双杠臂屈伸（上身前趴30-60°）', type: 'strength', muscleGroups: ['胸', '肱三头'] },
+
+  // ── 胸 - 上胸 ──────────────────────────────────────────
+  { id: 'incline-press', name: '杠铃/哑铃/史密斯卧推（上斜推）', type: 'strength', muscleGroups: ['胸', '肱三头'] },
+  { id: 'incline-machine-press', name: '器械推胸（上斜推）', type: 'strength', muscleGroups: ['胸', '肱三头'] },
+  { id: 'incline-cable-crossover', name: '龙门架夹胸（上斜夹）', type: 'strength', muscleGroups: ['胸'] },
+
+  // ── 肩前束 ─────────────────────────────────────────────
+  { id: 'shoulder-press', name: '器械/哑铃/史密斯推举', type: 'strength', muscleGroups: ['肩前束', '肱三头'] },
+  { id: 'front-raise', name: '杠铃/哑铃片前平举', type: 'strength', muscleGroups: ['肩前束'] },
+
+  // ── 肩中束 ─────────────────────────────────────────────
+  { id: 'lateral-raise', name: '哑铃/龙门架侧平举', type: 'strength', muscleGroups: ['肩中束'] },
+  { id: 'upright-row', name: '杠铃提拉', type: 'strength', muscleGroups: ['肩中束'] },
+
+  // ── 肱三头 ─────────────────────────────────────────────
+  { id: 'tricep-pushdown-bar', name: '龙门架直杆下压', type: 'strength', muscleGroups: ['肱三头'] },
+  { id: 'tricep-pushdown-rope', name: '龙门架绳索臂屈伸', type: 'strength', muscleGroups: ['肱三头'] },
+  { id: 'overhead-tricep', name: '哑铃颈后臂屈伸', type: 'strength', muscleGroups: ['肱三头'] },
+  { id: 'skull-crusher', name: '杠铃仰卧臂屈伸', type: 'strength', muscleGroups: ['肱三头'] },
+  { id: 'close-grip-bench', name: '杠铃/哑铃/史密斯窄距卧推', type: 'strength', muscleGroups: ['肱三头', '胸'] },
+
+  // ── 腿臀 - 股四头肌 ────────────────────────────────────
+  { id: 'squat', name: '杠铃深蹲', type: 'strength', muscleGroups: ['股四头肌', '臀大肌'] },
+  { id: 'leg-extension', name: '器械腿屈伸', type: 'strength', muscleGroups: ['股四头肌'] },
+
+  // ── 腿臀 - 腘绳肌 ──────────────────────────────────────
+  { id: 'romanian-deadlift', name: '罗马尼亚/传统硬拉', type: 'strength', muscleGroups: ['腘绳肌', '臀大肌'] },
+  { id: 'leg-curl', name: '器械腿弯举', type: 'strength', muscleGroups: ['腘绳肌'] },
+
+  // ── 腿臀 - 臀大肌 ──────────────────────────────────────
+  { id: 'machine-hip-thrust', name: '器械臀冲', type: 'strength', muscleGroups: ['臀大肌'] },
+  { id: 'barbell-hip-thrust', name: '杠铃臀冲', type: 'strength', muscleGroups: ['臀大肌'] },
+
+  // ── 腿臀 - 兼练动作 ────────────────────────────────────
+  { id: 'hack-squat', name: '哈克机', type: 'strength', muscleGroups: ['股四头肌', '臀大肌'] },
+  { id: 'leg-press', name: '倒蹬机', type: 'strength', muscleGroups: ['股四头肌', '臀大肌'] },
+  { id: 'lunges', name: '箭步蹲', type: 'strength', muscleGroups: ['股四头肌', '臀大肌'] },
+  { id: 'smith-squat', name: '史密斯深蹲', type: 'strength', muscleGroups: ['股四头肌', '臀大肌'] },
+
+  // ── 腹 ─────────────────────────────────────────────────
+  { id: 'crunch', name: '平板卷腹', type: 'strength', muscleGroups: ['腹'] },
+  { id: 'hanging-leg-raise', name: '悬垂举腿', type: 'strength', muscleGroups: ['腹'] },
+
+  // ── 有氧 ───────────────────────────────────────────────
   { id: 'treadmill', name: '跑步机', type: 'cardio', muscleGroups: ['心肺'] },
   { id: 'elliptical', name: '椭圆机', type: 'cardio', muscleGroups: ['心肺'] },
-  { id: 'stationary-bike', name: '动感单车', type: 'cardio', muscleGroups: ['心肺'] },
-  { id: 'rowing-machine', name: '划船机', type: 'cardio', muscleGroups: ['心肺', '背部'] },
-  { id: 'stair-climber', name: '爬楼机', type: 'cardio', muscleGroups: ['心肺', '腿部'] },
-  { id: 'jump-rope', name: '跳绳', type: 'cardio', muscleGroups: ['心肺'] },
+  { id: 'rowing-machine', name: '划船机', type: 'cardio', muscleGroups: ['心肺', '背'] },
 ];
-
-export const EXERCISE_CATEGORIES = {
-  chest: '胸部',
-  back: '背部',
-  shoulders: '肩部',
-  biceps: '肱二头',
-  triceps: '肱三头',
-  legs: '腿部',
-  core: '核心',
-  cardio: '有氧',
-} as const;
