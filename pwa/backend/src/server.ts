@@ -8,6 +8,9 @@ import syncRoutes from './routes/sync.js';
 import authRoutes from './routes/auth.js';
 
 const fastify = Fastify({
+  // 信任反向代理（Caddy / nginx / ALB）转发的 X-Forwarded-* 头，
+  // 使 request.protocol 和 request.ip 反映真实客户端信息
+  trustProxy: true,
   logger: {
     level: env.isDev() ? 'debug' : 'info',
     transport: env.LOG_PRETTY

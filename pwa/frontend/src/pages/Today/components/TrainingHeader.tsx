@@ -1,7 +1,13 @@
-import { useEffect } from 'react';
-import { Box, Paper, Tab, Tabs, Typography } from '@mui/material';
+import { useEffect, useState } from 'react';
+import { Box, Paper, Tab, Tabs, Typography, IconButton, Tooltip } from '@mui/material';
+import { PauseRounded, PlayArrowRounded } from '@mui/icons-material';
 import { useSessionStore } from '../../../stores';
 import { WorkoutIcon } from '../../../components/WorkoutArtwork';
+import {
+  computeElapsedSeconds,
+  formatTimer,
+  getTimerStatusText,
+} from '../../../domain/sessionTimer';
 
 interface TrainingHeaderProps {
   trainingMode: 'strength' | 'cardio';
@@ -11,20 +17,41 @@ interface TrainingHeaderProps {
 
 export function TrainingHeader({ trainingMode, onModeChange }: TrainingHeaderProps) {
   const activeSession = useSessionStore(state => state.activeSession);
-  const trainingTimer = useSessionStore(state => state.trainingTimer);
-  const incrementTimer = useSessionStore(state => state.incrementTimer);
+  const pauseSession = useSessionStore(state => state.pauseSession);
+  const continueSession = useSessionStore(state => state.continueSession);
 
+  // setInterval 仅触发 UI 重绘，不作为计时数据源。
+  // 计时数据由 computeElapsedSeconds 按当前时间戳实时计算。
+  const [, setTick] = useState(0);
+  const sessionId = activeSession?.id;
+  const sessionTimerStatus = activeSession?.timerStatus;
   useEffect(() => {
-    const interval = setInterval(incrementTimer, 1000);
+    if (!activeSession || activeSession.timerStatus !== 'running') return;
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
     return () => clearInterval(interval);
-  }, [incrementTimer]);
+  }, [sessionId, sessionTimerStatus, activeSession]);
 
-  const formatTime = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return [hours, minutes, secs].map(value => value.toString().padStart(2, '0')).join(':');
+  const timerStatus = activeSession?.timerStatus;
+  const isRunning = timerStatus === 'running';
+  const isPaused = timerStatus === 'paused';
+
+  const elapsedSeconds = activeSession
+    ? computeElapsedSeconds(activeSession)
+    : 0;
+
+  const statusText = activeSession
+    ? getTimerStatusText(timerStatus)
+    : '准备开始';
+
+  const handleToggleTimer = () => {
+    if (isRunning) {
+      pauseSession();
+    } else if (isPaused) {
+      continueSession();
+    }
   };
+
+  const toggleLabel = isRunning ? '暂停训练' : '继续训练';
 
   return (
     <Box
@@ -80,18 +107,41 @@ export function TrainingHeader({ trainingMode, onModeChange }: TrainingHeaderPro
             <WorkoutIcon name="timer" size={31} strokeWidth={2.4} />
           </Box>
           <Box sx={{ minWidth: 0 }}>
-            <Typography
-              sx={{
-                color: activeSession ? '#078c66' : 'text.secondary',
-                fontSize: { xs: '0.98rem', sm: '1.08rem' },
-                fontWeight: 900,
-                lineHeight: 1.05,
-                fontVariantNumeric: 'tabular-nums',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {formatTime(trainingTimer)}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Typography
+                sx={{
+                  color: activeSession ? '#078c66' : 'text.secondary',
+                  fontSize: { xs: '0.98rem', sm: '1.08rem' },
+                  fontWeight: 900,
+                  lineHeight: 1.05,
+                  fontVariantNumeric: 'tabular-nums',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {formatTimer(elapsedSeconds)}
+              </Typography>
+              {activeSession && (isRunning || isPaused) && (
+                <Tooltip title={toggleLabel}>
+                  <IconButton
+                    data-testid="timer-toggle-button"
+                    aria-label={toggleLabel}
+                    onClick={handleToggleTimer}
+                    size="small"
+                    sx={{
+                      p: 0.25,
+                      color: isRunning ? '#078c66' : '#d97706',
+                      '&:hover': { bgcolor: 'rgba(5, 169, 120, 0.08)' },
+                    }}
+                  >
+                    {isRunning ? (
+                      <PauseRounded sx={{ fontSize: 20 }} />
+                    ) : (
+                      <PlayArrowRounded sx={{ fontSize: 20 }} />
+                    )}
+                  </IconButton>
+                </Tooltip>
+              )}
+            </Box>
             <Box sx={{ mt: 0.45, display: 'flex', alignItems: 'center', gap: 0.6 }}>
               <Box
                 aria-hidden="true"
@@ -99,11 +149,20 @@ export function TrainingHeader({ trainingMode, onModeChange }: TrainingHeaderPro
                   width: 7,
                   height: 7,
                   borderRadius: '50%',
-                  bgcolor: activeSession ? '#05b784' : 'text.disabled',
+                  bgcolor: isRunning
+                    ? '#05b784'
+                    : isPaused
+                      ? '#d97706'
+                      : 'text.disabled',
+                  ...(isRunning
+                    ? {
+                        animation: 'pulse 1.6s ease-in-out infinite',
+                      }
+                    : {}),
                 }}
               />
               <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', lineHeight: 1 }}>
-                {activeSession ? '训练中' : '准备开始'}
+                {statusText}
               </Typography>
             </Box>
           </Box>

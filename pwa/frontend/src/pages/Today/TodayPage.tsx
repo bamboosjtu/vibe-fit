@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Box, Typography, Button, Paper } from '@mui/material';
 import {
   Add as AddIcon,
@@ -11,7 +11,11 @@ import { WorkoutIcon } from '../../components/WorkoutArtwork';
 import { TrainingHeader } from './components/TrainingHeader';
 import { StrengthSection } from './components/StrengthSection';
 import { CardioSection } from './components/CardioSection';
+import { SessionRecoveryDialog } from './components/SessionRecoveryDialog';
 import type { TrainingDay, ExerciseGroup } from '../../types';
+
+// 运行期间 checkpoint 间隔（毫秒）
+const CHECKPOINT_INTERVAL_MS = 30 * 1000;
 
 export function TodayPage() {
   const activeSession = useSessionStore(state => state.activeSession);
@@ -20,17 +24,53 @@ export function TodayPage() {
   const initSession = useSessionStore(state => state.initialize);
   const addExercise = useSessionStore(state => state.addExercise);
   const ensureSession = useSessionStore(state => state.ensureSession);
+  const checkpointSession = useSessionStore(state => state.checkpointSession);
 
   const { currentPlan, initialize: initPlan, advanceToNextDay } = usePlanStore();
-  
+
   const [trainingMode, setTrainingMode] = useState<'strength' | 'cardio'>('strength');
   const [showGroupSelector, setShowGroupSelector] = useState(false);
   const [selectedGroupContext, setSelectedGroupContext] = useState<{ phaseId: string, group: ExerciseGroup } | null>(null);
   const [initialized, setInitialized] = useState(false);
 
+  // 使用 ref 保持最新的 checkpoint 函数引用，避免 effect 频繁重建
+  const checkpointRef = useRef(checkpointSession);
+  useEffect(() => {
+    checkpointRef.current = checkpointSession;
+  }, [checkpointSession]);
+
   useEffect(() => {
     Promise.all([initPlan(), initSession()]).then(() => setInitialized(true));
   }, [initPlan, initSession]);
+
+  // 运行期间每 30 秒 checkpoint（仅触发持久化，setInterval 不作为计时数据源）
+  const sessionId = activeSession?.id;
+  const sessionTimerStatus = activeSession?.timerStatus;
+  useEffect(() => {
+    if (!activeSession || activeSession.timerStatus !== 'running') return;
+    const interval = setInterval(() => {
+      checkpointRef.current();
+    }, CHECKPOINT_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [sessionId, sessionTimerStatus, activeSession]);
+
+  // 页面隐藏或卸载时立即 checkpoint，防止丢失最近区间
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        checkpointRef.current();
+      }
+    };
+    const handlePageHide = () => {
+      checkpointRef.current();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handlePageHide);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
+    };
+  }, []);
 
   const todayDay = useMemo<TrainingDay | null>(() => {
     if (!currentPlan || currentPlan.days.length === 0) return null;
@@ -192,19 +232,21 @@ export function TodayPage() {
           onSelect={(exercise) => {
             // 确保会话已启动
             ensureSession(currentPlan || undefined, todayDay || undefined);
-            
+
             // 添加动作
             addExercise(
               exercise, 
               selectedGroupContext.phaseId, 
               selectedGroupContext.group.id
             );
-            
+
             setShowGroupSelector(false);
             setSelectedGroupContext(null);
           }}
         />
       )}
+
+      <SessionRecoveryDialog />
     </Box>
   );
 }

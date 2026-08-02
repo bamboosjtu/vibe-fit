@@ -14,7 +14,7 @@ https://localhost, https://127.0.0.1 {
     tls internal
 
     # API 与健康检查路由 → backend
-    @api path /api/* /health
+    @api path /api/* /health /healthz /readyz
     handle @api {
         reverse_proxy backend:8080
     }

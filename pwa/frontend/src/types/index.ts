@@ -50,6 +50,10 @@ export const SessionExerciseSchema = z.object({
 });
 export type SessionExercise = z.infer<typeof SessionExerciseSchema>;
 
+// 计时器状态
+export const TimerStatusSchema = z.enum(['running', 'paused', 'completed']);
+export type TimerStatus = z.infer<typeof TimerStatusSchema>;
+
 // 训练会话
 export const TrainingSessionSchema = z.object({
   id: z.string(),
@@ -60,6 +64,11 @@ export const TrainingSessionSchema = z.object({
   endedAt: z.string().optional(),
   exercises: z.array(SessionExerciseSchema),
   notes: z.string().optional(),
+  // 计时器字段（保存在 payload JSON 中，无需升级 Dexie 表版本）
+  timerStatus: TimerStatusSchema.optional(),
+  elapsedSeconds: z.number().optional(),
+  runningSince: z.string().nullable().optional(),
+  lastCheckpointAt: z.string().optional(),
 });
 export type TrainingSession = z.infer<typeof TrainingSessionSchema>;
 

@@ -7,25 +7,30 @@ VibeFit PWA 采用**本地 Docker 一体化部署**：前端、后端、worker�
 ## 部署架构
 
 ```
-手机 / 平板 / 浏览器
+浏览器
     │
     │ HTTPS 443
     ▼
 Caddy（tls internal 自签证书）
 ├── /              → frontend:80（nginx 静态站点）
 ├── /api/*         → backend:8080（Fastify API）
-└── /health        → backend:8080
+├── /health        → backend:8080
+├── /healthz       → backend:8080
+└── /readyz        → backend:8080
 
 内部容器网络：
 postgres ← backend → worker（HTTP push 事件）
 ```
 
+> **当前状态：本机 HTTPS 验证。** Caddy 的 `tls internal` 仅为 `localhost` 与 `127.0.0.1` 签发证书，不支持通过局域网 IP 访问。未来树莓派局域网部署时，需为局域网 IP 或域名签发证书（如使用 `tls internal` 显式声明主机名，或改用 mkcert / Let's Encrypt）。
+
 同时支持两种部署形态：
 
-| 形态 | 入口 | 内部服务 |
-| --- | --- | --- |
-| 家庭局域网（默认） | Caddy HTTPS（`tls internal` 自签 CA） | frontend / backend / worker / postgres |
-| 未来云部署 | 公网负载均衡或反向代理（ALB / SLB / Nginx / Caddy） | frontend / backend / worker / postgres / 云消息服务 |
+| 形态 | 入口 | 内部服务 | HTTPS 状态 |
+| --- | --- | --- | --- |
+| 本机开发（当前） | Caddy HTTPS（`tls internal`，仅 localhost） | frontend / backend / worker / postgres | 本机验证 |
+| 未来树莓派局域网 | Caddy HTTPS（需扩展主机名或使用 mkcert） | frontend / backend / worker / postgres | 待实现 |
+| 未来云部署 | 公网负载均衡或反向代理（ALB / SLB / Nginx / Caddy） | frontend / backend / worker / postgres / 云消息服务 | 由云平台终止 TLS |
 
 Frontend 与 Backend 路由结构在两种形态下保持不变。
 
@@ -41,19 +46,20 @@ Frontend 与 Backend 路由结构在两种形态下保持不变。
 
 ```
 pwa/
-├── docker-compose.yml       # 编排：postgres + backend + worker + frontend + caddy
-├── Caddyfile                # Caddy HTTPS 网关配置
+├── docker-compose.yml        # 编排：postgres + backend + worker + frontend + caddy
+├── Caddyfile                 # Caddy HTTPS 网关配置
 ├── backend/
-│   ├── Dockerfile           # 多阶段多目标构建（api-runtime / worker-runtime）
-│   ├── docker-entrypoint.sh # backend 启动时用 psql 初始化 schema（v1）
-│   └── .env.example         # 后端配置模板
+│   ├── Dockerfile            # 多阶段多目标构建（api-runtime / worker-runtime）
+│   ├── docker-entrypoint.sh  # backend 启动时用 psql 执行增量迁移
+│   └── .env.example          # 后端配置模板
 ├── frontend/
-│   ├── Dockerfile           # 前端构建（Vite）+ nginx 静态服务
-│   └── nginx.conf           # nginx 反向代理 /api/* → backend（同源访问）
+│   ├── Dockerfile            # 前端构建（Vite）+ nginx 静态服务
+│   └── nginx.conf            # nginx 反向代理 /api/* → backend（同源访问）
 ├── scripts/
-│   └── acceptance.sh        # 部署验收脚本
-├── build-multiarch.sh       # 多架构（AMD64 + ARM64）构建脚本
-└── cloudbuild.backend.yaml  # Cloud Build 配置（独立 backend/worker 镜像，可选）
+│   └── acceptance.sh         # 部署验收脚本
+├── build-multiarch.sh        # 多架构（AMD64 + ARM64）构建脚本
+├── cloudbuild.publish.yaml   # Cloud Build: 构建并推送镜像（不部署）
+└── cloudbuild.deploy-gcp.yaml # Cloud Build: 部署到 Cloud Run（不构建）
 ```
 
 ## 服务说明
@@ -78,7 +84,7 @@ worker + frontend
 caddy
 ```
 
-> 数据库 schema 固定为版本 1，由 backend 容器的 `docker-entrypoint.sh` 脚本在启动时用 `psql -f migration.sql` 初始化。脚本检测 `users` 表是否存在，已初始化的数据库会跳过。**不使用 prisma migrate，不使用独立迁移服务，生产镜像不含 prisma CLI。**
+> 数据库 schema 由 backend 容器的 `docker-entrypoint.sh` 脚本在启动时用 `psql` 执行增量迁移。脚本通过 `schema_migrations` 表跟踪已应用的迁移，遍历 `/app/prisma/migrations/*/migration.sql` 按序执行未应用的迁移。**不使用 prisma migrate CLI，不使用独立迁移服务，生产镜像不含 prisma CLI。** 新增迁移文件后重启容器即可自动应用。
 
 ## 镜像构建
 
@@ -294,18 +300,28 @@ mock 模式下 `POST /api/auth/send-code` 会把验证码直接放在响应的 `
 
 ### Cloud Build 独立镜像
 
-`pwa/cloudbuild.backend.yaml` 配置 Cloud Build 构建并部署两个独立镜像到 Cloud Run：
+镜像发布与云部署已拆分为两个独立配置：
 
-- `vibe-fit-backend:$BUILD_ID`（`api-runtime` target）
-- `vibe-fit-worker:$BUILD_ID`（`worker-runtime` target）
+- `pwa/cloudbuild.publish.yaml`：typecheck → build → push（仅发布镜像，不部署）
+- `pwa/cloudbuild.deploy-gcp.yaml`：deploy backend → deploy worker（仅部署，不构建）
 
-两个镜像分别推送、分别标记（`$BUILD_ID` 与 `$_COMMIT_SHA`）、分别部署、分别回滚。Worker 部署不再通过 `--command` / `--args` 覆盖 backend 镜像。
+发布镜像（每个镜像同时打 `$BUILD_ID` 与 `$_COMMIT_SHA` 标签，均推送到 Artifact Registry）：
 
 ```bash
-gcloud builds submit --config=cloudbuild.backend.yaml \
+gcloud builds submit --config=cloudbuild.publish.yaml \
   --substitutions=_REGION=asia-east1,_REPO=vibe-fit,_COMMIT_SHA=$(git rev-parse HEAD) \
   pwa/
 ```
+
+部署到 Cloud Run（使用已发布的镜像）：
+
+```bash
+gcloud builds submit --config=cloudbuild.deploy-gcp.yaml \
+  --substitutions=_REGION=asia-east1,_REPO=vibe-fit,_IMAGE_TAG=<BUILD_ID或COMMIT_SHA> \
+  pwa/
+```
+
+两个镜像分别推送、分别标记、分别部署、分别回滚。Worker 部署不再通过 `--command` / `--args` 覆盖 backend 镜像。
 
 > 详细步骤见 [gcloud.md](./gcloud.md)（历史参考，恢复 GCP 方案需重新引入已移除的依赖）。
 

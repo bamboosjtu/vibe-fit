@@ -150,12 +150,27 @@ fi
 echo ""
 
 # ── 9. Backend entrypoint 迁移日志 ─────────────────────
-echo "9. Backend schema 初始化"
+echo "9. Backend 数据库迁移"
 backend_logs=$(docker logs vibefit-backend 2>&1 || echo "")
-if echo "$backend_logs" | grep -q "Schema initialized\|Schema already exists"; then
-  ok "Schema 初始化脚本已执行"
+if echo "$backend_logs" | grep -q "already applied\|applied successfully\|Migration"; then
+  ok "迁移脚本已执行"
 else
-  fail "Schema 初始化日志未找到"
+  fail "迁移日志未找到"
+fi
+
+# Caddy 路由完整性：/healthz /readyz
+healthz_code=$(curl -sk -o /dev/null -w "%{http_code}" https://localhost/healthz 2>/dev/null || echo "000")
+if [ "$healthz_code" = "200" ]; then
+  ok "GET https://localhost/healthz → 200"
+else
+  fail "GET https://localhost/healthz → $healthz_code"
+fi
+
+readyz_code=$(curl -sk -o /dev/null -w "%{http_code}" https://localhost/readyz 2>/dev/null || echo "000")
+if [ "$readyz_code" = "200" ]; then
+  ok "GET https://localhost/readyz → 200"
+else
+  fail "GET https://localhost/readyz → $readyz_code"
 fi
 echo ""
 
