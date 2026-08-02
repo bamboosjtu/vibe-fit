@@ -107,37 +107,51 @@ function isExerciseStarted(ex: SessionExercise): boolean {
 }
 
 /**
+ * 判断单个 SessionExercise 是否属于指定 group。
+ * 仅按 groupId 严格匹配，不再做 legacy 兼容。
+ */
+function belongsToGroup(ex: SessionExercise, group: ExerciseGroup): boolean {
+  return ex.groupId === group.id;
+}
+
+/**
  * 判断单个 group 是否已选动作（sessionExercises 中存在属于该 group 的动作）。
  */
 function isGroupSelected(group: ExerciseGroup, sessionExercises: SessionExercise[]): boolean {
-  return sessionExercises.some(
-    (ex) => ex.groupId === group.id || (!ex.groupId && ex.groupId === 'legacy'
-      && group.availableExercises.some((c) => c.exerciseId === ex.exerciseId)),
-  );
+  return sessionExercises.some((ex) => belongsToGroup(ex, group));
 }
 
 /**
  * 判断单个 group 是否已完成：
  *  - 已选至少一个动作；
- *  - 所有已选动作的所有组都已完成（或为有氧且 cardioRecord.status === 'completed'）。
+ *  - 所有已选动作的所有组都已完成（或为有氧且 cardioRecord.status === 'completed'）；
+ *  - 已完成组数 >= group.targetTotalSets（若配置了目标组数）。
  */
 function isGroupCompleted(group: ExerciseGroup, sessionExercises: SessionExercise[]): boolean {
-  const groupExercises = sessionExercises.filter(
-    (ex) => ex.groupId === group.id || (!ex.groupId && ex.groupId === 'legacy'
-      && group.availableExercises.some((c) => c.exerciseId === ex.exerciseId)),
-  );
+  const groupExercises = sessionExercises.filter((ex) => belongsToGroup(ex, group));
   if (groupExercises.length === 0) return false;
-  return groupExercises.every(isExerciseComplete);
+
+  const allSelectedCompleted = groupExercises.every(isExerciseComplete);
+  if (!allSelectedCompleted) return false;
+
+  // 若配置了 targetTotalSets，要求完成组数达到该门槛
+  const requiredSets = group.targetTotalSets ?? 0;
+  if (requiredSets > 0) {
+    const completedSets = groupExercises.reduce(
+      (total, ex) => total + ex.sets.filter((s) => Boolean(s.completedAt)).length,
+      0,
+    );
+    return completedSets >= requiredSets;
+  }
+
+  return true;
 }
 
 /**
  * 判断单个 group 是否已开始（至少一个动作已开始）。
  */
 function isGroupStarted(group: ExerciseGroup, sessionExercises: SessionExercise[]): boolean {
-  const groupExercises = sessionExercises.filter(
-    (ex) => ex.groupId === group.id || (!ex.groupId && ex.groupId === 'legacy'
-      && group.availableExercises.some((c) => c.exerciseId === ex.exerciseId)),
-  );
+  const groupExercises = sessionExercises.filter((ex) => belongsToGroup(ex, group));
   return groupExercises.some(isExerciseStarted);
 }
 
@@ -269,9 +283,7 @@ export function buildTrainingContext(
 
   // 构建两套片段（顶部进度条 + 阶段卡片），同源同 status
   const phases: PhaseSegment[] = phasesSource.map((phase, idx) => {
-    const phaseExercises = sessionExercises.filter(
-      (ex) => ex.phaseId === phase.id || (!ex.phaseId && ex.groupId === 'legacy'),
-    );
+    const phaseExercises = sessionExercises.filter((ex) => ex.phaseId === phase.id);
     const totalSets = phaseExercises.reduce((sum, ex) => sum + ex.sets.length, 0);
     const completedSets = phaseExercises.reduce(
       (sum, ex) => sum + ex.sets.filter((s) => Boolean(s.completedAt)).length,
@@ -292,9 +304,7 @@ export function buildTrainingContext(
     const selectedGroupCount = groups.filter((g) => isGroupSelected(g, sessionExercises)).length;
     const requiredGroupCount = groups.length;
     const targetSets = groups.reduce((sum, g) => sum + (g.targetTotalSets ?? 0), 0);
-    const phaseExercises = sessionExercises.filter(
-      (ex) => ex.phaseId === phase.id || (!ex.phaseId && ex.groupId === 'legacy'),
-    );
+    const phaseExercises = sessionExercises.filter((ex) => ex.phaseId === phase.id);
     const completedSets = phaseExercises.reduce(
       (sum, ex) => sum + ex.sets.filter((s) => Boolean(s.completedAt)).length,
       0,

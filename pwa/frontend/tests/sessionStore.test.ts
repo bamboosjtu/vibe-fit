@@ -172,41 +172,22 @@ describe('resumeSession', () => {
     expect(useSessionStore.getState().staleSession).not.toBeNull();
   });
 
-  it('旧数据（无 timerStatus）：迁移为 paused 状态恢复', async () => {
+  it('无 timerStatus 的会话不再被迁移恢复', async () => {
+    // 删除 legacy 兼容后，无 timerStatus 的数据不再被恢复
     const startedAt = new Date(MOCK_NOW - 1800 * 1000).toISOString();
     const updatedAt = new Date(MOCK_NOW - 60 * 1000).toISOString();
-    const legacy = {
-      id: 'legacy',
+    const noTimerStatus = {
+      id: 'no-timer',
       startedAt,
       updatedAt,
       exercises: [],
     };
-    dbMocks.getPendingTraining.mockResolvedValue(legacy);
+    dbMocks.getPendingTraining.mockResolvedValue(noTimerStatus);
 
     const result = await useSessionStore.getState().resumeSession();
 
-    expect(result).toBe(true);
-    const active = useSessionStore.getState().activeSession;
-    expect(active?.timerStatus).toBe('paused');
-    expect(active?.elapsedSeconds).toBe(1740);
-    expect(active?.runningSince).toBeNull();
-  });
-
-  it('超过 24 小时的旧 pending 不被自动删除', async () => {
-    // 即使超过 24 小时，也不应调用 deletePendingTraining
-    const startedAt = new Date(MOCK_NOW - 48 * 3600 * 1000).toISOString();
-    const updatedAt = new Date(MOCK_NOW - 47 * 3600 * 1000).toISOString();
-    const legacy = {
-      id: 'legacy-old',
-      startedAt,
-      updatedAt,
-      exercises: [],
-    };
-    dbMocks.getPendingTraining.mockResolvedValue(legacy);
-
-    await useSessionStore.getState().resumeSession();
-
-    expect(dbMocks.deletePendingTraining).not.toHaveBeenCalled();
+    expect(result).toBe(false);
+    expect(useSessionStore.getState().activeSession).toBeNull();
   });
 });
 

@@ -27,7 +27,6 @@ import {
   endTimer,
   endAtLastCheckpoint,
   continueAfterGap,
-  migrateLegacySession,
   isStaleSession,
   IDLE_REST_TIMER,
   startRestTimerState,
@@ -93,12 +92,12 @@ interface SessionState {
   resumeCardio: (sessionExerciseId: string) => void;
   completeCardio: (
     sessionExerciseId: string,
-    metrics?: Partial<Pick<CardioRecord, 'speed' | 'incline' | 'distance' | 'calories' | 'pace' | 'resistance' | 'rpe'>>,
+    metrics?: Partial<Pick<CardioRecord, 'speed' | 'incline' | 'distanceMeters' | 'calories' | 'paceSecondsPer500m' | 'resistance' | 'rpe'>>,
   ) => void;
   // 节流更新运行中的有氧指标，防止切换页签/刷新丢失输入
   updateCardioMetrics: (
     sessionExerciseId: string,
-    metrics: Partial<Pick<CardioRecord, 'speed' | 'incline' | 'distance' | 'calories' | 'pace' | 'resistance' | 'rpe'>>,
+    metrics: Partial<Pick<CardioRecord, 'speed' | 'incline' | 'distanceMeters' | 'calories' | 'paceSecondsPer500m' | 'resistance' | 'rpe'>>,
   ) => void;
   cancelCardio: (sessionExerciseId: string) => void;
   hasActiveCardio: () => boolean;
@@ -160,6 +159,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const session: TrainingSession = {
       id: generateId(),
       planId: plan?.id,
+      // 快照计划名：历史搜索不依赖计划后续是否被重命名或删除
+      planName: plan?.name,
       dayId: day?.id,
       dayName: day?.name,
       startedAt: now,
@@ -217,17 +218,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const pending = await getPendingTraining();
     if (!pending) return false;
 
-    // 迁移旧数据（无计时器字段）
-    const migrated = migrateLegacySession(pending);
-
-    // 数据结构迁移：确保旧动作也有 phaseId/groupId
-    const exercises = (migrated.exercises as SessionExercise[]).map((ex) => ({
-      ...ex,
-      phaseId: ex.phaseId || 'legacy',
-      groupId: ex.groupId || 'legacy',
-    }));
-
-    const session = { ...migrated, exercises } as TrainingSession;
+    const session = pending as TrainingSession;
 
     // 已暂停的记录：恢复为暂停
     if (session.timerStatus === 'paused') {

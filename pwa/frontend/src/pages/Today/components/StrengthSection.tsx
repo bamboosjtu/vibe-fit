@@ -8,6 +8,7 @@ import {
 import type { ExerciseGroup, TrainingDay } from '../../../types';
 import { useSessionStore, usePlanStore } from '../../../stores';
 import { buildTrainingContext, type PhaseViewModel } from '../../../domain/trainingContext';
+import { vfTokens } from '../../../app/theme';
 import { ExerciseCard } from './ExerciseCard';
 
 interface StrengthSectionProps {
@@ -85,13 +86,7 @@ function PhaseSection({
     if (!phase) return [];
     return phase.groups.map(group => ({
       group,
-      exercises: activeSession?.exercises.filter(exercise => {
-        if (exercise.groupId === group.id) return true;
-        if (exercise.groupId === 'legacy' || !exercise.groupId) {
-          return group.availableExercises.some(candidate => candidate.exerciseId === exercise.exerciseId);
-        }
-        return false;
-      }) ?? [],
+      exercises: activeSession?.exercises.filter(exercise => exercise.groupId === group.id) ?? [],
     }));
   }, [activeSession, phase]);
 
@@ -104,7 +99,7 @@ function PhaseSection({
       sx={{
         overflow: 'hidden',
         border: '1px solid',
-        borderColor: phaseVM.status === 'current' ? 'rgba(5,169,120,0.36)' : 'divider',
+        borderColor: phaseVM.status === 'current' ? vfTokens.borderActive : 'divider',
         borderRadius: '8px',
         bgcolor: 'background.paper',
         boxShadow: isExpanded ? '0 7px 20px rgba(15, 23, 42, 0.045)' : 'none',
@@ -139,19 +134,19 @@ function PhaseSection({
             display: 'grid',
             placeItems: 'center',
             borderRadius: '50%',
-            bgcolor: isComplete ? '#05a978' : phaseVM.status === 'current' ? '#05a978' : '#e2e5eb',
-            color: isComplete || phaseVM.status === 'current' ? '#fff' : 'text.secondary',
+            bgcolor: isComplete ? vfTokens.primary : phaseVM.status === 'current' ? vfTokens.primary : vfTokens.surfaceDisabled,
+          color: isComplete || phaseVM.status === 'current' ? '#fff' : 'text.secondary',
             fontSize: '0.95rem',
             fontWeight: 900,
             boxShadow: phaseVM.status === 'current' ? '0 3px 8px rgba(5, 169, 120, 0.18)' : 'none',
-            border: isComplete ? 'none' : phaseVM.status === 'current' ? 'none' : '1.5px solid #d7dbe2',
+            border: isComplete ? 'none' : phaseVM.status === 'current' ? 'none' : `1.5px solid ${vfTokens.borderSubtle}`,
           }}
         >
           {isComplete ? <CheckIcon sx={{ fontSize: 21 }} /> : phaseIndex + 1}
         </Box>
         <Typography sx={{ flex: 1, fontSize: '1rem', fontWeight: 900 }}>{phaseVM.name}</Typography>
         <Typography sx={{ color: 'text.secondary', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
-          {phaseVM.selectedGroupCount}/{phaseVM.requiredGroupCount} 组动作 · {phaseVM.completedSets}/{phaseVM.targetSets || phaseExercises.length} 完成
+          动作组 {phaseVM.selectedGroupCount}/{phaseVM.requiredGroupCount} · 完成 {phaseVM.completedSets}/{phaseVM.targetSets || phaseExercises.length} 组
         </Typography>
         <ExpandIcon
           sx={{
@@ -181,10 +176,10 @@ function PhaseSection({
                     onClick={() => onOpenGroupSelector(phase.id, group)}
                     sx={{
                       borderWidth: '1px !important',
-                      borderColor: 'rgba(5,169,120,0.36)',
+                      borderColor: vfTokens.borderActive,
                       borderRadius: '7px',
-                      color: '#078c66',
-                      bgcolor: 'rgba(5,169,120,0.035)',
+                      color: vfTokens.primaryDark,
+                      bgcolor: vfTokens.primarySurface,
                       fontSize: '0.75rem',
                       fontWeight: 800,
                     }}
@@ -203,7 +198,7 @@ function PhaseSection({
                   size="small"
                   startIcon={<AddIcon />}
                   onClick={() => onOpenGroupSelector(phase.id, group)}
-                  sx={{ ml: 0.75, mb: 0.75, color: '#078c66', fontSize: '0.72rem', fontWeight: 800 }}
+                  sx={{ ml: 0.75, mb: 0.75, color: vfTokens.primaryDark, fontSize: '0.72rem', fontWeight: 800 }}
                 >
                   添加{group.name}动作
                 </Button>

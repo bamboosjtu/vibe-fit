@@ -55,6 +55,25 @@ export function formatDuration(minutes: number): string {
   return `${mins}分钟`;
 }
 
+/**
+ * 历史记录时长格式化（基于秒）：
+ * - < 60s：显示秒（避免不足一分钟显示 0 分钟）
+ * - < 1h：显示分钟
+ * - >= 1h：显示小时+分钟
+ * 不强制向上取整，保持准确性。
+ */
+export function formatHistoryDuration(seconds: number): string {
+  if (seconds < 60) {
+    return `${seconds}秒`;
+  }
+  if (seconds < 3600) {
+    return `${Math.floor(seconds / 60)}分钟`;
+  }
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  return `${hours}小时${mins}分钟`;
+}
+
 // 计算训练时长（分钟）
 export function calculateSessionDuration(startedAt: string, endedAt?: string): number {
   const start = new Date(startedAt).getTime();

@@ -273,7 +273,8 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
               data-testid="delete-last-set-button"
               size="small"
               startIcon={<DeleteIcon />}
-              disabled={sets.length === 0}
+              // 至少保留一组：力量动作不允许删到零组
+              disabled={sets.length <= 1}
               onClick={() => {
                 // 删除最后一组：已填写的训练组需要确认
                 const last = sets[sets.length - 1];

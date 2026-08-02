@@ -1,17 +1,40 @@
 import { createTheme } from '@mui/material/styles';
 
+/**
+ * VibeFit 自定义 Token：作为跨端共享的视觉契约。
+ * 新增组件应优先使用这些 token，禁止再新增品牌色硬编码字面量。
+ * 既有硬编码颜色分批迁移至 token。
+ */
+export const vfTokens = {
+  // 主品牌色（祖母绿）
+  primary: '#05A978',
+  primaryDark: '#078763',
+  primaryLight: '#35C79B',
+  // 品牌色淡背景（卡片、当前项高亮）
+  primarySurface: 'rgba(5, 169, 120, 0.08)',
+  primarySurfaceStrong: 'rgba(5, 169, 120, 0.12)',
+  // 边框
+  borderActive: '#05a978',
+  borderDefault: '#E5E7EB',
+  borderSubtle: '#e2e5eb',
+  // 禁用态表面
+  surfaceDisabled: '#e8ebf0',
+  // 辅助色
+  secondary: '#06B6D4',
+} as const;
+
 // 清新运动风配色方案
 const colors = {
   // 主色调 - 渐变绿
   primary: {
-    main: '#05A978',      // VibeFit 祖母绿
-    light: '#35C79B',     // 浅绿
-    dark: '#078763',      // 深绿
+    main: vfTokens.primary,
+    light: vfTokens.primaryLight,
+    dark: vfTokens.primaryDark,
     contrastText: '#ffffff',
   },
   // 辅助色 - 清新蓝
   secondary: {
-    main: '#06B6D4',      // 青色
+    main: vfTokens.secondary,
     light: '#22D3EE',     // 浅青
     dark: '#0891B2',      // 深青
     contrastText: '#ffffff',
@@ -49,7 +72,7 @@ const colors = {
     disabled: '#9CA3AF',
   },
   // 分割线
-  divider: '#E5E7EB',
+  divider: vfTokens.borderDefault,
 };
 
 export const lightTheme = createTheme({

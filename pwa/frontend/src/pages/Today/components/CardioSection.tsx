@@ -31,58 +31,89 @@ import type { Exercise, SessionExercise, CardioRecord } from '../../../types';
 /**
  * 器械指标字段配置。
  * 不同器械展示不同的指标输入，数据结构支持后续扩展。
- * 来源：docs/ui_brief/今日训练.md 第 6.3 节
+ * 来源：docs/ui/today/ui-brief.md 第 6.3 节
  */
+type MetricKey =
+  | 'speed'
+  | 'incline'
+  | 'distanceMeters'
+  | 'calories'
+  | 'paceSecondsPer500m'
+  | 'resistance'
+  | 'rpe';
+
 interface MetricField {
-  key: 'speed' | 'incline' | 'distance' | 'calories' | 'rpe' | 'pace' | 'resistance';
+  key: MetricKey;
   label: string;
-  unit?: string;
+  /** 输入框显示的单位文案 */
+  inputUnit?: string;
+  /**
+   * 输入框数值 → 存储值的换算（如 km → m）。
+   * 默认原样存储。
+   */
+  toStored?: (input: number) => number;
+  /**
+   * 存储值 → 完成态展示字符串。
+   * 默认按 inputUnit 拼接。
+   */
+  toDisplay?: (stored: number) => string;
+}
+
+/** 距离单位换算：跑步机/椭圆机输入 km，划船机输入 m，统一存米 */
+const kmToMeters = (km: number) => km * 1000;
+const metersToKm = (m: number) => m / 1000;
+
+/** 配速：存储秒数，展示 MM:SS */
+function formatPace(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
 }
 
 const EQUIPMENT_METRICS: Record<string, MetricField[]> = {
   // 跑步机：时长、速度、坡度、距离、卡路里
   'treadmill': [
-    { key: 'speed', label: '速度', unit: 'km/h' },
-    { key: 'incline', label: '坡度', unit: '%' },
-    { key: 'distance', label: '距离', unit: 'km' },
-    { key: 'calories', label: '卡路里', unit: 'kcal' },
+    { key: 'speed', label: '速度', inputUnit: 'km/h' },
+    { key: 'incline', label: '坡度', inputUnit: '%' },
+    { key: 'distanceMeters', label: '距离', inputUnit: 'km', toStored: kmToMeters, toDisplay: (m) => `${metersToKm(m).toFixed(2)} km` },
+    { key: 'calories', label: '卡路里', inputUnit: 'kcal' },
   ],
   // 椭圆机：时长、阻力等级、距离、卡路里
   'elliptical': [
     { key: 'resistance', label: '阻力等级' },
-    { key: 'distance', label: '距离', unit: 'km' },
-    { key: 'calories', label: '卡路里', unit: 'kcal' },
+    { key: 'distanceMeters', label: '距离', inputUnit: 'km', toStored: kmToMeters, toDisplay: (m) => `${metersToKm(m).toFixed(2)} km` },
+    { key: 'calories', label: '卡路里', inputUnit: 'kcal' },
   ],
   // 划船机：时长、距离、平均配速、阻力等级
   'rowing-machine': [
-    { key: 'distance', label: '距离', unit: 'm' },
-    { key: 'pace', label: '平均配速', unit: '/500m' },
+    { key: 'distanceMeters', label: '距离', inputUnit: 'm', toDisplay: (m) => `${Math.round(m)} m` },
+    { key: 'paceSecondsPer500m', label: '平均配速', inputUnit: '秒', toDisplay: (s) => `${formatPace(s)} /500m` },
     { key: 'resistance', label: '阻力等级' },
   ],
 };
 
 /**
  * 指标合理性校验规则（非阻塞，仅提示异常值）。
- * 不阻止保存，但用户输入超出合理范围时给出非阻塞提示。
+ * 注意：min/max 针对存储后的值（米/秒）。
  */
 interface ValidationRule {
   min: number;
   max: number;
-  /** 异常时提示文案 */
   hint: string;
 }
 
-const METRIC_VALIDATION: Partial<Record<MetricField['key'], ValidationRule>> = {
+const METRIC_VALIDATION: Partial<Record<MetricKey, ValidationRule>> = {
   speed: { min: 0, max: 30, hint: '速度通常在 0-30 km/h 之间' },
   incline: { min: 0, max: 30, hint: '坡度通常在 0-30% 之间' },
-  distance: { min: 0, max: 100, hint: '距离不能为负数，单次训练通常不超过 100' },
+  // 距离以米存储：100km = 100000m
+  distanceMeters: { min: 0, max: 100000, hint: '距离不能为负数，单次训练通常不超过 100km' },
   calories: { min: 0, max: 5000, hint: '卡路里应为非负数' },
-  pace: { min: 60, max: 600, hint: '配速通常在 60-600 秒/500m 之间' },
+  paceSecondsPer500m: { min: 60, max: 600, hint: '配速通常在 60-600 秒/500m 之间' },
   resistance: { min: 1, max: 30, hint: '阻力等级通常在 1-30 之间' },
 };
 
 /** 校验单个指标值：返回异常提示文案，正常时返回 null */
-function validateMetric(key: MetricField['key'], value: number | undefined | null): string | null {
+function validateMetric(key: MetricKey, value: number | undefined | null): string | null {
   if (value === undefined || value === null || Number.isNaN(value)) return null;
   const rule = METRIC_VALIDATION[key];
   if (!rule) return null;
@@ -145,20 +176,48 @@ function CardioCard({ exercise, sessionExercise }: CardioCardProps) {
     return () => clearInterval(interval);
   }, [status, sessionExercise?.id]);
 
+  // 页面隐藏前 flush 未提交的草稿（避免切换页签/刷新丢失输入）
+  useEffect(() => {
+    const handler = () => window.dispatchEvent(new Event('cardio-flush-drafts'));
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') handler();
+    };
+    window.addEventListener('pagehide', handler);
+    window.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('pagehide', handler);
+      window.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, []);
+
   const elapsedSeconds = record ? computeCardioElapsedSeconds(record) : 0;
 
-  // 指标值统一从 store 读取（record 中），不再使用组件本地 state
-  // 临时输入框值通过 onBlur/onKeyDown Enter 提交到 store
-  const getMetricValue = (key: string): string => {
-    const v = record?.[key as keyof CardioRecord];
-    return v !== undefined && v !== null && typeof v === 'number' ? String(v) : '';
+  // 将存储值转换为输入框展示字符串（如 distanceMeters → km）
+  const getMetricDisplay = (field: MetricField): string => {
+    const stored = record?.[field.key];
+    if (stored === undefined || stored === null || typeof stored !== 'number') return '';
+    // 距离：米 → km（仅当 toStored 存在且为 km→m 换算时反向转换）
+    if (field.key === 'distanceMeters' && field.toStored === kmToMeters) {
+      return String(metersToKm(stored));
+    }
+    return String(stored);
   };
 
-  const handleMetricChange = (key: string, v: string) => {
+  // 将输入框字符串解析并换算为存储值，写入 store
+  const commitMetric = (field: MetricField, input: string) => {
     if (!sessionExercise) return;
-    const num = v === '' ? undefined : Number(v);
-    const metrics = { [key]: num } as Partial<Pick<CardioRecord, 'speed' | 'incline' | 'distance' | 'calories' | 'pace' | 'resistance' | 'rpe'>>;
-    updateCardioMetrics(sessionExercise.id, metrics);
+    const trimmed = input.trim();
+    if (trimmed === '') {
+      // 清空：写入 undefined
+      updateCardioMetrics(sessionExercise.id, { [field.key]: undefined });
+      return;
+    }
+    const num = Number(trimmed);
+    // NaN 不得进入 Store
+    if (Number.isNaN(num)) return;
+    const stored = field.toStored ? field.toStored(num) : num;
+    if (Number.isNaN(stored)) return;
+    updateCardioMetrics(sessionExercise.id, { [field.key]: stored });
   };
 
   const handleStart = () => {
@@ -246,8 +305,8 @@ function CardioCard({ exercise, sessionExercise }: CardioCardProps) {
             elapsedSeconds={elapsedSeconds}
             targetDurationSeconds={record?.targetDurationSeconds}
             metricFields={metricFields}
-            getMetricValue={getMetricValue}
-            onMetricChange={handleMetricChange}
+            getMetricDisplay={getMetricDisplay}
+            onCommit={commitMetric}
             isRunning={status === 'running'}
             onPause={handlePause}
             onResume={handleResume}
@@ -339,8 +398,8 @@ function ActiveState({
   elapsedSeconds,
   targetDurationSeconds,
   metricFields,
-  getMetricValue,
-  onMetricChange,
+  getMetricDisplay,
+  onCommit,
   isRunning,
   onPause,
   onResume,
@@ -349,8 +408,8 @@ function ActiveState({
   elapsedSeconds: number;
   targetDurationSeconds?: number;
   metricFields: MetricField[];
-  getMetricValue: (key: string) => string;
-  onMetricChange: (key: string, v: string) => void;
+  getMetricDisplay: (field: MetricField) => string;
+  onCommit: (field: MetricField, input: string) => void;
   isRunning: boolean;
   onPause: () => void;
   onResume: () => void;
@@ -367,19 +426,24 @@ function ActiveState({
         />
       </Box>
 
-      {/* 器械特定指标输入：值直接从 store 读取，避免切换页签/刷新丢失 */}
+      {/* 器械特定指标输入：草稿保存在组件本地，onBlur/Enter 提交到 store */}
       {metricFields.length > 0 && (
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: '1fr 1fr 1fr 1fr' }, gap: 2, mb: 2 }}>
           {metricFields.map((field) => {
-            const numericValue = getMetricValue(field.key);
-            const num = numericValue === '' ? undefined : Number(numericValue);
-            const warning = validateMetric(field.key, num);
+            const displayValue = getMetricDisplay(field);
+            // 校验基于存储值：将显示值（km）转回米
+            const storedForValidation = (() => {
+              if (displayValue === '' || Number.isNaN(Number(displayValue))) return undefined;
+              const inputNum = Number(displayValue);
+              return field.toStored ? field.toStored(inputNum) : inputNum;
+            })();
+            const warning = validateMetric(field.key, storedForValidation);
             return (
-              <CardioInput
+              <CardioDraftInput
                 key={field.key}
-                label={`${field.label}${field.unit ? `(${field.unit})` : ''}`}
-                value={numericValue}
-                onChange={(v) => onMetricChange(field.key, v)}
+                label={`${field.label}${field.inputUnit ? `(${field.inputUnit})` : ''}`}
+                initialValue={displayValue}
+                onCommit={(v) => onCommit(field, v)}
                 warning={warning}
               />
             );
@@ -452,15 +516,16 @@ function CompletedState({
         {metricFields.length > 0 && (
           <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
             {metricFields.map((field) => {
-              const value = record?.[field.key as keyof CardioRecord];
-              if (value === undefined || value === null || typeof value !== 'number') return null;
+              const stored = record?.[field.key];
+              if (stored === undefined || stored === null || typeof stored !== 'number') return null;
+              const display = field.toDisplay ? field.toDisplay(stored) : `${stored}${field.inputUnit ? ` ${field.inputUnit}` : ''}`;
               return (
                 <Typography key={field.key} variant="body2" color="text.secondary" sx={{ fontSize: '0.82rem' }}>
-                  {field.label}: <strong>{value}{field.unit ? ` ${field.unit}` : ''}</strong>
+                  {field.label}: <strong>{display}</strong>
                 </Typography>
               );
             })}
-            {metricFields.every((f) => record?.[f.key as keyof CardioRecord] === undefined) && (
+            {metricFields.every((f) => record?.[f.key] === undefined) && (
               <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.82rem' }}>
                 无额外指标
               </Typography>
@@ -500,14 +565,59 @@ function MetricDisplay({ label, value }: { label: string; value: string }) {
   );
 }
 
-function CardioInput({ label, value, onChange, warning }: { label: string; value: string; onChange: (v: string) => void; warning?: string | null }) {
+/**
+ * 草稿输入框：
+ * - onChange 仅更新本地字符串草稿，不写入 store
+ * - onBlur / Enter 提交到 store
+ * - 监听全局 cardio-flush-drafts 事件，在页签切换/刷新前 flush
+ * - NaN 不会进入 store
+ */
+function CardioDraftInput({
+  label,
+  initialValue,
+  onCommit,
+  warning,
+}: {
+  label: string;
+  initialValue: string;
+  onCommit: (v: string) => void;
+  warning?: string | null;
+}) {
+  const [draft, setDraft] = useState(initialValue);
+
+  // 当 store 中存储值变化（如恢复未完成训练）时同步草稿
+  useEffect(() => {
+    setDraft(initialValue);
+  }, [initialValue]);
+
+  // 页签切换/刷新前 flush 未提交草稿
+  useEffect(() => {
+    const flush = () => {
+      if (draft !== initialValue) {
+        onCommit(draft);
+      }
+    };
+    window.addEventListener('cardio-flush-drafts', flush);
+    return () => {
+      window.removeEventListener('cardio-flush-drafts', flush);
+    };
+  }, [draft, initialValue, onCommit]);
+
+  const commit = () => onCommit(draft);
+
   return (
     <Box>
       <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', mb: 0.5 }}>{label}</Typography>
       <TextField
         size="small"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
         type="number"
         inputMode="decimal"
         error={Boolean(warning)}
@@ -519,6 +629,24 @@ function CardioInput({ label, value, onChange, warning }: { label: string; value
           {warning}
         </FormHelperText>
       )}
+    </Box>
+  );
+}
+
+/** 简单输入框（用于目标时长等非指标场景，直接受控） */
+function CardioInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <Box>
+      <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', mb: 0.5 }}>{label}</Typography>
+      <TextField
+        size="small"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        type="number"
+        inputMode="decimal"
+        sx={{ width: '100%', maxWidth: 120, '& .MuiOutlinedInput-root': { borderRadius: '10px', bgcolor: 'background.paper' } }}
+        inputProps={{ style: { fontSize: 18, fontWeight: 'bold', textAlign: 'center' } }}
+      />
     </Box>
   );
 }

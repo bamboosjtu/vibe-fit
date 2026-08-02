@@ -10,7 +10,6 @@ import {
   computeElapsedSeconds,
   formatTimer,
   isStaleSession,
-  migrateLegacySession,
   checkpointTimer,
   pauseTimer,
   continueTimer,
@@ -175,60 +174,6 @@ describe('isStaleSession', () => {
       runningSince: new Date(NOW - 5 * 3600 * 1000).toISOString(),
     });
     expect(isStaleSession(session, NOW)).toBe(true);
-  });
-});
-
-describe('migrateLegacySession', () => {
-  it('已有 timerStatus 的会话：原样返回', () => {
-    const session = makeSession({ timerStatus: 'paused', elapsedSeconds: 42 });
-    const result = migrateLegacySession(session);
-    expect(result.timerStatus).toBe('paused');
-    expect(result.elapsedSeconds).toBe(42);
-  });
-
-  it('旧数据（无 timerStatus）：默认恢复为 paused', () => {
-    const startedAt = new Date(NOW - 1800 * 1000).toISOString();
-    const updatedAt = new Date(NOW - 60 * 1000).toISOString();
-    const legacy = {
-      id: 'legacy1',
-      startedAt,
-      updatedAt,
-      exercises: [],
-    } as Partial<TrainingSession> & { startedAt: string; updatedAt?: string };
-
-    const result = migrateLegacySession(legacy);
-    expect(result.timerStatus).toBe('paused');
-    expect(result.runningSince).toBeNull();
-    expect(result.elapsedSeconds).toBe(1740); // updatedAt - startedAt
-    expect(result.lastCheckpointAt).toBe(updatedAt);
-  });
-
-  it('旧数据使用 updatedAt - startedAt 估算，不使用当前时间', () => {
-    const startedAt = new Date(NOW - 7200 * 1000).toISOString(); // 2 小时前
-    const updatedAt = new Date(NOW - 3600 * 1000).toISOString(); // 1 小时前
-    const legacy = {
-      id: 'legacy2',
-      startedAt,
-      updatedAt,
-      exercises: [],
-    } as Partial<TrainingSession> & { startedAt: string; updatedAt?: string };
-
-    const result = migrateLegacySession(legacy);
-    // 应该是 3600（updatedAt-startedAt），而不是 7200（now-startedAt）
-    expect(result.elapsedSeconds).toBe(3600);
-  });
-
-  it('旧数据缺失 updatedAt：使用 startedAt 作为估算基准', () => {
-    const startedAt = new Date(NOW - 1000 * 1000).toISOString();
-    const legacy = {
-      id: 'legacy3',
-      startedAt,
-      exercises: [],
-    } as Partial<TrainingSession> & { startedAt: string; updatedAt?: string };
-
-    const result = migrateLegacySession(legacy);
-    expect(result.elapsedSeconds).toBe(0);
-    expect(result.lastCheckpointAt).toBe(startedAt);
   });
 });
 

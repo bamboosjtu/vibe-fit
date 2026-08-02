@@ -49,11 +49,13 @@ export const CardioRecordSchema = z.object({
   runningSince: z.string().nullable().optional(),
   targetDurationSeconds: z.number().optional(),
   // 运行中输入的指标字段：节流写入到 store，防止切换页签/刷新丢失
-  speed: z.number().optional(),
-  incline: z.number().optional(),
-  distance: z.number().optional(),
-  calories: z.number().optional(),
-  pace: z.number().optional(), // 划船机平均配速（/500m）
+  speed: z.number().optional(), // km/h
+  incline: z.number().optional(), // %
+  // 统一以"米"为单位存储距离，UI 层按器械单位（km/m）换算
+  distanceMeters: z.number().optional(),
+  calories: z.number().optional(), // kcal
+  // 划船机平均配速：秒 /500m。UI 显示为 MM:SS /500m
+  paceSecondsPer500m: z.number().optional(),
   resistance: z.number().optional(), // 椭圆机/划船机阻力等级
   rpe: z.number().min(1).max(10).optional(),
 });
@@ -95,6 +97,8 @@ export type TimerStatus = z.infer<typeof TimerStatusSchema>;
 export const TrainingSessionSchema = z.object({
   id: z.string(),
   planId: z.string().optional(),
+  // 计划名快照：会话创建时复制计划名，避免后续计划重命名/删除影响历史搜索
+  planName: z.string().optional(),
   dayId: z.string().optional(),
   dayName: z.string().optional(),
   startedAt: z.string(),

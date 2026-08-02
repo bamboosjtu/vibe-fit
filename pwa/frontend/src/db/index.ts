@@ -104,6 +104,16 @@ export const importAllData = (data: ImportPayload): Promise<void> =>
 // 清除所有数据
 export const clearAllData = () => getRepository().clearAllData();
 
+/**
+ * 彻底删除整个数据库（开发阶段重置专用）。
+ * 调用后需要刷新页面以重建数据库。
+ */
+export async function deleteDatabase(): Promise<void> {
+  await db.delete();
+  // 阻止 Dexie 重新打开，需刷新页面
+  window.location.reload();
+}
+
 // 未完成训练状态
 export const savePendingTraining = (state: PendingTrainingState) =>
   getRepository().savePendingTraining(state);

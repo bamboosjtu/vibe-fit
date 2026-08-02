@@ -346,17 +346,16 @@ export class SqliteRepository implements DataRepository {
 
   // 未完成训练
   async savePendingTraining(state: PendingTrainingState): Promise<void> {
-    // payload 存完整 TrainingSession，updated_at 单独列；读取时合并 {...payload, updatedAt}
-    const { updatedAt, ...session } = state;
+    // payload 存完整 TrainingSession，updated_at 单独列；读取时以 {...payload, updatedAt: row.updated_at} 覆盖
     const markedAt = getCurrentISOString();
     const conn = this.getConnection();
     await conn.run(
       `INSERT OR REPLACE INTO pending_training (id, plan_id, updated_at, payload) VALUES (?, ?, ?, ?)`,
       [
         1,
-        session.planId ?? null,
+        state.planId ?? null,
         markedAt,
-        JSON.stringify(session),
+        JSON.stringify(state),
       ],
     );
   }

@@ -75,35 +75,6 @@ export function isStaleSession(
 }
 
 /**
- * 迁移旧训练会话数据（无计时器字段的 pending training）。
- *
- * 旧 pending 默认恢复为暂停状态。
- * elapsedSeconds 使用 updatedAt - startedAt 估算，不使用当前时间。
- */
-export function migrateLegacySession(
-  session: Partial<TrainingSession> & { startedAt: string; updatedAt?: string },
-): TrainingSession {
-  if (session.timerStatus) {
-    return session as TrainingSession;
-  }
-
-  // 旧数据无计时器字段，估算 elapsedSeconds
-  const startedAt = new Date(session.startedAt).getTime();
-  const updatedAt = session.updatedAt
-    ? new Date(session.updatedAt).getTime()
-    : startedAt;
-  const elapsedSeconds = Math.max(0, Math.floor((updatedAt - startedAt) / 1000));
-
-  return {
-    ...(session as TrainingSession),
-    timerStatus: 'paused',
-    elapsedSeconds,
-    runningSince: null,
-    lastCheckpointAt: session.updatedAt || session.startedAt,
-  };
-}
-
-/**
  * 执行 checkpoint：如果正在运行，将当前区间时间累加到 elapsedSeconds。
  * 返回更新后的计时器字段。
  */
@@ -425,7 +396,7 @@ export function resumeCardioRecord(
 /** 完成有氧记录：结算最后运行区间，设 endedAt */
 export function completeCardioRecord(
   record: CardioRecord,
-  metrics: Partial<Pick<CardioRecord, 'speed' | 'incline' | 'distance' | 'calories' | 'pace' | 'resistance' | 'rpe'>> = {},
+  metrics: Partial<Pick<CardioRecord, 'speed' | 'incline' | 'distanceMeters' | 'calories' | 'paceSecondsPer500m' | 'resistance' | 'rpe'>> = {},
   now: number = Date.now(),
 ): CardioRecord {
   return {
