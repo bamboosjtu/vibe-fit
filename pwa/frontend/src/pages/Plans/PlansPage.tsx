@@ -16,9 +16,6 @@ import {
 } from '@mui/material';
 import {
   Add as AddIcon,
-  CloudSync as CloudSyncIcon,
-  BarChart as BarChartIcon,
-  Bolt as BoltIcon,
   ChevronRight as ChevronRightIcon,
   PlayArrow as PlayIcon,
   FitnessCenter as FitnessCenterIcon,
@@ -273,23 +270,12 @@ export function PlansPage() {
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <IconButton 
-              size="small" 
-              sx={{ 
-                color: 'text.secondary',
-                '&:hover': {
-                  bgcolor: 'rgba(16, 185, 129, 0.1)',
-                },
-              }}
-            >
-              <CloudSyncIcon />
-            </IconButton>
             <IconButton
               size="small"
               sx={{
                 background: 'linear-gradient(135deg, #10B981 0%, #06B6D4 100%)',
                 color: 'white',
-                '&:hover': { 
+                '&:hover': {
                   background: 'linear-gradient(135deg, #059669 0%, #0891B2 100%)',
                 },
               }}
@@ -304,131 +290,23 @@ export function PlansPage() {
       {/* 可滚动内容区域 */}
       <Box
         className="vf-scroll"
-        sx={{ 
-          flex: 1, 
-          overflow: 'auto', 
-          px: 2, 
+        sx={{
+          flex: 1,
+          overflow: 'auto',
+          px: 2,
           pb: 2,
         }}
       >
-        {/* 训练洞察 */}
-      <Box sx={{ mb: 3 }}>
-        <Typography 
-          variant="subtitle1" 
-          fontWeight="bold" 
-          sx={{ 
-            mb: 1.5,
-            fontFamily: '"Poppins", sans-serif',
-          }}
-        >
-          训练洞察
-        </Typography>
-        <Card 
-          sx={{ 
-            borderRadius: '12px',
-            boxShadow: '0 12px 30px rgba(15, 23, 42, 0.06)',
-            border: '1px solid',
-            borderColor: 'divider',
-          }}
-        >
-          <CardContent sx={{ p: 2 }}>
-            {/* 统计数据 */}
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box
-                  sx={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: '10px',
-                    bgcolor: 'rgba(16, 185, 129, 0.1)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <BarChartIcon sx={{ color: 'primary.main', fontSize: 20 }} />
-                </Box>
-                <Box>
-                  <Typography 
-                    variant="caption" 
-                    color="text.secondary" 
-                    display="block"
-                    sx={{ fontFamily: '"Nunito", sans-serif' }}
-                  >
-                    本周已练
-                  </Typography>
-                  <Typography 
-                    variant="body1" 
-                    fontWeight="bold" 
-                    color="text.secondary"
-                    sx={{ fontFamily: '"Poppins", sans-serif' }}
-                  >
-                    待开发
-                  </Typography>
-                </Box>
-              </Box>
-              <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box
-                  sx={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: '10px',
-                    bgcolor: 'rgba(6, 182, 212, 0.1)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <BoltIcon sx={{ color: 'secondary.main', fontSize: 20 }} />
-                </Box>
-                <Box>
-                  <Typography 
-                    variant="caption" 
-                    color="text.secondary" 
-                    display="block"
-                    sx={{ fontFamily: '"Nunito", sans-serif' }}
-                  >
-                    上周总负重
-                  </Typography>
-                  <Typography 
-                    variant="body1" 
-                    fontWeight="bold" 
-                    color="text.secondary"
-                    sx={{ fontFamily: '"Poppins", sans-serif' }}
-                  >
-                    待开发
-                  </Typography>
-                </Box>
-              </Box>
-            </Box>
-          </CardContent>
-        </Card>
-      </Box>
-
       {/* 当前使用中 */}
       {currentPlan && (
         <Box sx={{ mb: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-            <Typography 
-              variant="subtitle1" 
+            <Typography
+              variant="subtitle1"
               fontWeight="bold"
               sx={{ fontFamily: '"Poppins", sans-serif' }}
             >
               当前使用中
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{ 
-                color: 'primary.main',
-                cursor: 'pointer',
-                fontFamily: '"Nunito", sans-serif',
-                fontWeight: 600,
-                '&:hover': {
-                  textDecoration: 'underline',
-                },
-              }}
-            >
-              查看详情
             </Typography>
           </Box>
 

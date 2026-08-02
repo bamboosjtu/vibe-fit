@@ -6,6 +6,11 @@ import {
   Button,
   Chip,
   TextField,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormHelperText,
 } from '@mui/material';
 import {
   AddRounded as AddIcon,
@@ -56,6 +61,35 @@ const EQUIPMENT_METRICS: Record<string, MetricField[]> = {
   ],
 };
 
+/**
+ * 指标合理性校验规则（非阻塞，仅提示异常值）。
+ * 不阻止保存，但用户输入超出合理范围时给出非阻塞提示。
+ */
+interface ValidationRule {
+  min: number;
+  max: number;
+  /** 异常时提示文案 */
+  hint: string;
+}
+
+const METRIC_VALIDATION: Partial<Record<MetricField['key'], ValidationRule>> = {
+  speed: { min: 0, max: 30, hint: '速度通常在 0-30 km/h 之间' },
+  incline: { min: 0, max: 30, hint: '坡度通常在 0-30% 之间' },
+  distance: { min: 0, max: 100, hint: '距离不能为负数，单次训练通常不超过 100' },
+  calories: { min: 0, max: 5000, hint: '卡路里应为非负数' },
+  pace: { min: 60, max: 600, hint: '配速通常在 60-600 秒/500m 之间' },
+  resistance: { min: 1, max: 30, hint: '阻力等级通常在 1-30 之间' },
+};
+
+/** 校验单个指标值：返回异常提示文案，正常时返回 null */
+function validateMetric(key: MetricField['key'], value: number | undefined | null): string | null {
+  if (value === undefined || value === null || Number.isNaN(value)) return null;
+  const rule = METRIC_VALIDATION[key];
+  if (!rule) return null;
+  if (value < rule.min || value > rule.max) return rule.hint;
+  return null;
+}
+
 export function CardioSection() {
   const activeSession = useSessionStore(state => state.activeSession);
   // 仅展示有图片资源占位的 3 类有氧器械
@@ -92,6 +126,7 @@ function CardioCard({ exercise, sessionExercise }: CardioCardProps) {
   const pauseCardio = useSessionStore(state => state.pauseCardio);
   const resumeCardio = useSessionStore(state => state.resumeCardio);
   const completeCardio = useSessionStore(state => state.completeCardio);
+  const updateCardioMetrics = useSessionStore(state => state.updateCardioMetrics);
 
   const record = sessionExercise?.cardioRecord;
   const status = record?.status ?? 'idle';
@@ -99,8 +134,8 @@ function CardioCard({ exercise, sessionExercise }: CardioCardProps) {
 
   // 目标时长输入（分钟）
   const [targetMinutes, setTargetMinutes] = useState('30');
-  // 运行中指标输入（动态根据器械字段）
-  const [metricValues, setMetricValues] = useState<Record<string, string>>({});
+  // "再次记录"覆盖确认：完成状态下点击再次记录需显式确认，避免误覆盖
+  const [showRestartConfirm, setShowRestartConfirm] = useState(false);
 
   // setInterval 仅触发 UI 重绘，有氧计时数据由时间戳实时计算
   const [, setTick] = useState(0);
@@ -111,6 +146,20 @@ function CardioCard({ exercise, sessionExercise }: CardioCardProps) {
   }, [status, sessionExercise?.id]);
 
   const elapsedSeconds = record ? computeCardioElapsedSeconds(record) : 0;
+
+  // 指标值统一从 store 读取（record 中），不再使用组件本地 state
+  // 临时输入框值通过 onBlur/onKeyDown Enter 提交到 store
+  const getMetricValue = (key: string): string => {
+    const v = record?.[key as keyof CardioRecord];
+    return v !== undefined && v !== null && typeof v === 'number' ? String(v) : '';
+  };
+
+  const handleMetricChange = (key: string, v: string) => {
+    if (!sessionExercise) return;
+    const num = v === '' ? undefined : Number(v);
+    const metrics = { [key]: num } as Partial<Pick<CardioRecord, 'speed' | 'incline' | 'distance' | 'calories' | 'pace' | 'resistance' | 'rpe'>>;
+    updateCardioMetrics(sessionExercise.id, metrics);
+  };
 
   const handleStart = () => {
     const minutes = parseInt(targetMinutes, 10);
@@ -127,24 +176,17 @@ function CardioCard({ exercise, sessionExercise }: CardioCardProps) {
 
   const handleComplete = () => {
     if (!sessionExercise) return;
-    // 提交指标：仅包含有值的字段
-    const metrics: Partial<Pick<CardioRecord, 'speed' | 'incline' | 'distance' | 'calories' | 'rpe'>> = {};
-    for (const field of metricFields) {
-      const v = metricValues[field.key];
-      if (v && v !== '') {
-        const num = Number(v);
-        if (!isNaN(num)) {
-          // pace/resistance 字段不在 CardioRecord 中，跳过（数据结构扩展时再支持）
-          if (field.key === 'speed' || field.key === 'incline' || field.key === 'distance' || field.key === 'calories') {
-            metrics[field.key] = num;
-          }
-        }
-      }
-    }
-    completeCardio(sessionExercise.id, metrics);
+    // 完成时无需再传 metrics：所有运行中输入已通过 updateCardioMetrics 同步到 store
+    completeCardio(sessionExercise.id);
   };
 
   const handleRestart = () => {
+    // 完成状态下再次记录会覆盖现有记录，需显式确认
+    setShowRestartConfirm(true);
+  };
+
+  const confirmRestart = () => {
+    setShowRestartConfirm(false);
     startCardio(exercise, parseInt(targetMinutes, 10) || undefined);
   };
 
@@ -204,8 +246,8 @@ function CardioCard({ exercise, sessionExercise }: CardioCardProps) {
             elapsedSeconds={elapsedSeconds}
             targetDurationSeconds={record?.targetDurationSeconds}
             metricFields={metricFields}
-            metricValues={metricValues}
-            onMetricChange={(key, v) => setMetricValues(prev => ({ ...prev, [key]: v }))}
+            getMetricValue={getMetricValue}
+            onMetricChange={handleMetricChange}
             isRunning={status === 'running'}
             onPause={handlePause}
             onResume={handleResume}
@@ -221,6 +263,22 @@ function CardioCard({ exercise, sessionExercise }: CardioCardProps) {
           />
         )}
       </Box>
+
+      {/* 再次记录覆盖确认：避免误覆盖已完成的有氧记录 */}
+      <Dialog open={showRestartConfirm} onClose={() => setShowRestartConfirm(false)}>
+        <DialogTitle>覆盖已完成记录？</DialogTitle>
+        <DialogContent>
+          <Typography>
+            再次记录会覆盖当前已完成的有氧数据（时长与指标将被重置）。确定继续吗？
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowRestartConfirm(false)}>取消</Button>
+          <Button data-testid="cardio-restart-confirm-button" color="warning" onClick={confirmRestart}>
+            覆盖并重新开始
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Card>
   );
 }
@@ -281,7 +339,7 @@ function ActiveState({
   elapsedSeconds,
   targetDurationSeconds,
   metricFields,
-  metricValues,
+  getMetricValue,
   onMetricChange,
   isRunning,
   onPause,
@@ -291,7 +349,7 @@ function ActiveState({
   elapsedSeconds: number;
   targetDurationSeconds?: number;
   metricFields: MetricField[];
-  metricValues: Record<string, string>;
+  getMetricValue: (key: string) => string;
   onMetricChange: (key: string, v: string) => void;
   isRunning: boolean;
   onPause: () => void;
@@ -309,17 +367,23 @@ function ActiveState({
         />
       </Box>
 
-      {/* 器械特定指标输入 */}
+      {/* 器械特定指标输入：值直接从 store 读取，避免切换页签/刷新丢失 */}
       {metricFields.length > 0 && (
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: '1fr 1fr 1fr 1fr' }, gap: 2, mb: 2 }}>
-          {metricFields.map((field) => (
-            <CardioInput
-              key={field.key}
-              label={`${field.label}${field.unit ? `(${field.unit})` : ''}`}
-              value={metricValues[field.key] ?? ''}
-              onChange={(v) => onMetricChange(field.key, v)}
-            />
-          ))}
+          {metricFields.map((field) => {
+            const numericValue = getMetricValue(field.key);
+            const num = numericValue === '' ? undefined : Number(numericValue);
+            const warning = validateMetric(field.key, num);
+            return (
+              <CardioInput
+                key={field.key}
+                label={`${field.label}${field.unit ? `(${field.unit})` : ''}`}
+                value={numericValue}
+                onChange={(v) => onMetricChange(field.key, v)}
+                warning={warning}
+              />
+            );
+          })}
         </Box>
       )}
 
@@ -436,7 +500,7 @@ function MetricDisplay({ label, value }: { label: string; value: string }) {
   );
 }
 
-function CardioInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function CardioInput({ label, value, onChange, warning }: { label: string; value: string; onChange: (v: string) => void; warning?: string | null }) {
   return (
     <Box>
       <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', mb: 0.5 }}>{label}</Typography>
@@ -446,9 +510,15 @@ function CardioInput({ label, value, onChange }: { label: string; value: string;
         onChange={(e) => onChange(e.target.value)}
         type="number"
         inputMode="decimal"
+        error={Boolean(warning)}
         sx={{ width: '100%', maxWidth: 120, '& .MuiOutlinedInput-root': { borderRadius: '10px', bgcolor: 'background.paper' } }}
         inputProps={{ style: { fontSize: 18, fontWeight: 'bold', textAlign: 'center' } }}
       />
+      {warning && (
+        <FormHelperText sx={{ color: 'warning.main', fontSize: '0.65rem', mt: 0.25, lineHeight: 1.2 }}>
+          {warning}
+        </FormHelperText>
+      )}
     </Box>
   );
 }

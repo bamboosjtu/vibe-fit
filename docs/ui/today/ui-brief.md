@@ -2,7 +2,7 @@
 
 > 状态：Baseline v1
 > 适用范围：`pwa/frontend` 的 H5/PWA、Capacitor Android 复用界面
-> 关联原型图：[`docs/ui_brief/今日训练.png`](../../ui_brief/今日训练.png)
+> 关联原型图：[`docs/prototype/今日训练.png`](../../prototype/今日训练.png)
 > 配套规范：[`docs/design-system.md`](../../design-system.md)
 > 数据契约：[`pwa/frontend/src/domain/trainingContext.ts`](../../../pwa/frontend/src/domain/trainingContext.ts)
 
@@ -185,4 +185,4 @@ idle ──开始训练──▶ running ──暂停──▶ paused ──继�
 
 ## 14. 关联原型图
 
-- [`docs/ui_brief/今日训练.png`](../../ui_brief/今日训练.png)
+- [`docs/prototype/今日训练.png`](../../prototype/今日训练.png)

@@ -48,10 +48,13 @@ export const CardioRecordSchema = z.object({
   elapsedSeconds: z.number().default(0),
   runningSince: z.string().nullable().optional(),
   targetDurationSeconds: z.number().optional(),
+  // 运行中输入的指标字段：节流写入到 store，防止切换页签/刷新丢失
   speed: z.number().optional(),
   incline: z.number().optional(),
   distance: z.number().optional(),
   calories: z.number().optional(),
+  pace: z.number().optional(), // 划船机平均配速（/500m）
+  resistance: z.number().optional(), // 椭圆机/划船机阻力等级
   rpe: z.number().min(1).max(10).optional(),
 });
 export type CardioRecord = z.infer<typeof CardioRecordSchema>;

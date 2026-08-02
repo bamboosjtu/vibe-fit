@@ -3,6 +3,7 @@ import type {
   TrainingDay,
   TrainingSession,
   TrainingPhase,
+  ExerciseGroup,
   SessionExercise,
 } from '../types';
 
@@ -12,7 +13,9 @@ export type PhaseStatus = 'completed' | 'current' | 'upcoming';
 /** 训练会话整体状态（统一映射 timerStatus + 是否有 activeSession） */
 export type SessionRuntimeStatus = 'idle' | 'running' | 'paused' | 'completed';
 
-/** 阶段进度片段 */
+/**
+ * 阶段进度片段（用于顶部进度条）。
+ */
 export interface PhaseSegment {
   id: string;
   name: string;
@@ -20,6 +23,26 @@ export interface PhaseSegment {
   status: PhaseStatus;
   totalSets: number;
   completedSets: number;
+}
+
+/**
+ * 阶段 ViewModel（用于 StrengthSection 阶段卡片）。
+ *
+ * 阶段完成状态在 domain 层计算一次，UI 不再重复计算。
+ */
+export interface PhaseViewModel {
+  id: string;
+  name: string;
+  order: number;
+  status: PhaseStatus;
+  /** 已选动作组的数量 */
+  selectedGroupCount: number;
+  /** 必选动作组总数（阶段内所有 group） */
+  requiredGroupCount: number;
+  /** 已完成组数 */
+  completedSets: number;
+  /** 目标总组数（来自 group.targetTotalSets 之和；无可为 0） */
+  targetSets: number;
 }
 
 /**
@@ -39,14 +62,16 @@ export interface TrainingContextViewModel {
   totalDays: number | null;
   /** 整场训练状态 */
   runtimeStatus: SessionRuntimeStatus;
-  /** 预计时长（分钟）；无法估算时为 null */
+  /** 预计时长（分钟）；无法估算时为 null。值为基于组数的估算，非计划字段 */
   estimatedMinutes: number | null;
-  /** 当前阶段序号（1-based）；无阶段时为 null */
+  /** 当前阶段序号（1-based）；无阶段或全部完成时为 null */
   currentPhaseIndex: number | null;
   /** 总阶段数 */
   totalPhases: number;
-  /** 阶段进度片段 */
+  /** 阶段进度片段（顶部进度条使用） */
   phases: PhaseSegment[];
+  /** 阶段 ViewModel 列表（阶段卡片使用，与 phases 同源） */
+  phaseViewModels: PhaseViewModel[];
   /** 是否为自由训练（无计划） */
   isFreeTraining: boolean;
 }
@@ -54,11 +79,11 @@ export interface TrainingContextViewModel {
 const FREE_TRAINING_DAY_NAME = '自由训练';
 
 /**
- * 判断单个 SessionExercise 是否已完成（所有组都有 completedAt）
+ * 判断单个 SessionExercise 是否已完成（所有组都有 completedAt）。
+ * 力量动作要求所有组完成；有氧动作要求 cardioRecord.status === 'completed'。
  */
 function isExerciseComplete(ex: SessionExercise): boolean {
   if (ex.sets.length === 0) {
-    // 有氧动作：检查 cardioRecord.status
     if (ex.type === 'cardio') {
       return ex.cardioRecord?.status === 'completed';
     }
@@ -68,7 +93,8 @@ function isExerciseComplete(ex: SessionExercise): boolean {
 }
 
 /**
- * 判断单个 SessionExercise 是否已开始（至少一组完成 或 有氧已运行/暂停/完成）
+ * 判断单个 SessionExercise 是否已开始。
+ * 力量动作：至少一组完成；有氧动作：cardioRecord 已离开 idle 状态。
  */
 function isExerciseStarted(ex: SessionExercise): boolean {
   if (ex.sets.length > 0) {
@@ -81,34 +107,89 @@ function isExerciseStarted(ex: SessionExercise): boolean {
 }
 
 /**
- * 计算阶段状态。
- *
- * - 已完成：阶段内所有动作都已完成
- * - 当前：第一个未完成但有动作已开始的阶段；若无已开始阶段，则为第一个未完成阶段
- * - 未开始：其余
+ * 判断单个 group 是否已选动作（sessionExercises 中存在属于该 group 的动作）。
  */
-function computePhaseStatus(
+function isGroupSelected(group: ExerciseGroup, sessionExercises: SessionExercise[]): boolean {
+  return sessionExercises.some(
+    (ex) => ex.groupId === group.id || (!ex.groupId && ex.groupId === 'legacy'
+      && group.availableExercises.some((c) => c.exerciseId === ex.exerciseId)),
+  );
+}
+
+/**
+ * 判断单个 group 是否已完成：
+ *  - 已选至少一个动作；
+ *  - 所有已选动作的所有组都已完成（或为有氧且 cardioRecord.status === 'completed'）。
+ */
+function isGroupCompleted(group: ExerciseGroup, sessionExercises: SessionExercise[]): boolean {
+  const groupExercises = sessionExercises.filter(
+    (ex) => ex.groupId === group.id || (!ex.groupId && ex.groupId === 'legacy'
+      && group.availableExercises.some((c) => c.exerciseId === ex.exerciseId)),
+  );
+  if (groupExercises.length === 0) return false;
+  return groupExercises.every(isExerciseComplete);
+}
+
+/**
+ * 判断单个 group 是否已开始（至少一个动作已开始）。
+ */
+function isGroupStarted(group: ExerciseGroup, sessionExercises: SessionExercise[]): boolean {
+  const groupExercises = sessionExercises.filter(
+    (ex) => ex.groupId === group.id || (!ex.groupId && ex.groupId === 'legacy'
+      && group.availableExercises.some((c) => c.exerciseId === ex.exerciseId)),
+  );
+  return groupExercises.some(isExerciseStarted);
+}
+
+/**
+ * 计算单个阶段的"完成 / 已开始"原始状态（不决定 current）。
+ */
+interface PhaseRawState {
+  phase: TrainingPhase;
+  /** 所有必选 group 都已选动作且所有动作完成 */
+  completed: boolean;
+  /** 至少一个 group 已开始（即至少一个动作已开始） */
+  started: boolean;
+}
+
+function computePhaseRawState(
   phase: TrainingPhase,
   sessionExercises: SessionExercise[],
-  hasStartedAny: boolean,
-): PhaseStatus {
-  const phaseExercises = sessionExercises.filter(
-    (ex) => ex.phaseId === phase.id || (!ex.phaseId && ex.groupId === 'legacy'),
-  );
+): PhaseRawState {
+  const groups = phase.groups ?? [];
+  if (groups.length === 0) {
+    return { phase, completed: false, started: false };
+  }
+  // 阶段完成 = 所有必选 group 都已完成
+  const completed = groups.every((g) => isGroupCompleted(g, sessionExercises));
+  // 阶段已开始 = 任一 group 已开始
+  const started = groups.some((g) => isGroupStarted(g, sessionExercises));
+  return { phase, completed, started };
+}
 
-  if (phaseExercises.length === 0) {
-    // 阶段无动作：若有任何已开始动作，则视为未开始；否则视为未开始
-    return 'upcoming';
+/**
+ * 两遍计算：先求出每个阶段的 completed/started，再统一选择唯一的 current 阶段。
+ *
+ * 1. 优先选择第一个"已开始但未完成"的阶段作为 current；
+ * 2. 若没有，则选第一个未完成阶段作为 current（训练尚未真正开始时默认第一个）；
+ * 3. 其他未完成阶段为 upcoming；
+ * 4. 所有阶段完成后，不再存在 current。
+ */
+function resolvePhaseStatuses(rawStates: PhaseRawState[]): PhaseStatus[] {
+  const statuses: PhaseStatus[] = rawStates.map((s) => (s.completed ? 'completed' : 'upcoming'));
+
+  // 1. 第一个"已开始但未完成"
+  let currentIdx = rawStates.findIndex((s) => s.started && !s.completed);
+
+  // 2. 若无，选第一个未完成
+  if (currentIdx === -1) {
+    currentIdx = rawStates.findIndex((s) => !s.completed);
   }
 
-  const allComplete = phaseExercises.every(isExerciseComplete);
-  if (allComplete) return 'completed';
-
-  const anyStarted = phaseExercises.some(isExerciseStarted);
-  if (anyStarted) return 'current';
-
-  // 阶段有动作但未开始：若没有任何阶段开始，第一个阶段为当前
-  return hasStartedAny ? 'upcoming' : 'current';
+  if (currentIdx >= 0) {
+    statuses[currentIdx] = 'current';
+  }
+  return statuses;
 }
 
 /**
@@ -125,8 +206,10 @@ function mapRuntimeStatus(session: TrainingSession | null): SessionRuntimeStatus
 /**
  * 估算预计训练时长（分钟）。
  *
- * 规则：总组数 × 2.15 分钟/组，向上取整到 5 分钟，最小 30 分钟。
+ * 规则：总目标组数 × 2.15 分钟/组，向上取整到 5 分钟，最小 30 分钟。
  * 无组数信息时返回 null。
+ *
+ * 注意：此值为算法估值，非计划显式字段。后续若计划新增 estimatedMinutes 字段，应优先使用计划值。
  */
 function estimateMinutes(day: TrainingDay | null): number | null {
   if (!day?.phases) return null;
@@ -166,6 +249,7 @@ export function buildTrainingContext(
       currentPhaseIndex: null,
       totalPhases: 0,
       phases: [],
+      phaseViewModels: [],
       isFreeTraining: true,
     };
   }
@@ -176,9 +260,15 @@ export function buildTrainingContext(
   const estimatedMinutes = estimateMinutes(todayDay);
 
   const sessionExercises = activeSession?.exercises ?? [];
-  const hasStartedAny = sessionExercises.some(isExerciseStarted);
+  const phasesSource = todayDay.phases ?? [];
 
-  const phases: PhaseSegment[] = (todayDay.phases ?? []).map((phase) => {
+  // 第一遍：计算每个阶段的原始状态
+  const rawStates = phasesSource.map((phase) => computePhaseRawState(phase, sessionExercises));
+  // 第二遍：统一决定 current
+  const statuses = resolvePhaseStatuses(rawStates);
+
+  // 构建两套片段（顶部进度条 + 阶段卡片），同源同 status
+  const phases: PhaseSegment[] = phasesSource.map((phase, idx) => {
     const phaseExercises = sessionExercises.filter(
       (ex) => ex.phaseId === phase.id || (!ex.phaseId && ex.groupId === 'legacy'),
     );
@@ -191,14 +281,38 @@ export function buildTrainingContext(
       id: phase.id,
       name: phase.name,
       order: phase.order,
-      status: computePhaseStatus(phase, sessionExercises, hasStartedAny),
+      status: statuses[idx],
       totalSets,
       completedSets,
     };
   });
 
+  const phaseViewModels: PhaseViewModel[] = phasesSource.map((phase, idx) => {
+    const groups = phase.groups ?? [];
+    const selectedGroupCount = groups.filter((g) => isGroupSelected(g, sessionExercises)).length;
+    const requiredGroupCount = groups.length;
+    const targetSets = groups.reduce((sum, g) => sum + (g.targetTotalSets ?? 0), 0);
+    const phaseExercises = sessionExercises.filter(
+      (ex) => ex.phaseId === phase.id || (!ex.phaseId && ex.groupId === 'legacy'),
+    );
+    const completedSets = phaseExercises.reduce(
+      (sum, ex) => sum + ex.sets.filter((s) => Boolean(s.completedAt)).length,
+      0,
+    );
+    return {
+      id: phase.id,
+      name: phase.name,
+      order: phase.order,
+      status: statuses[idx],
+      selectedGroupCount,
+      requiredGroupCount,
+      completedSets,
+      targetSets,
+    };
+  });
+
   // 当前阶段序号
-  const currentPhaseIdx = phases.findIndex((p) => p.status === 'current');
+  const currentPhaseIdx = statuses.findIndex((s) => s === 'current');
   const currentPhaseIndex = currentPhaseIdx >= 0 ? currentPhaseIdx + 1 : null;
 
   return {
@@ -211,6 +325,7 @@ export function buildTrainingContext(
     currentPhaseIndex,
     totalPhases: phases.length,
     phases,
+    phaseViewModels,
     isFreeTraining: false,
   };
 }

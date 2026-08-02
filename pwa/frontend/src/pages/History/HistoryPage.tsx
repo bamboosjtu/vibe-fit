@@ -61,8 +61,13 @@ export function HistoryPage() {
     const filtered = endedSessions.filter(session => {
       if (!searchQuery) return true;
       const query = searchQuery.toLowerCase();
+      // 搜索训练日名称、动作名、计划名、日期
+      const dateStr = new Date(session.startedAt).toLocaleDateString('zh-CN');
+      const planName = session.planId ?? '';
       return (
         session.dayName?.toLowerCase().includes(query) ||
+        dateStr.toLowerCase().includes(query) ||
+        planName.toLowerCase().includes(query) ||
         session.exercises.some(e => e.exerciseName.toLowerCase().includes(query))
       );
     });
@@ -185,16 +190,19 @@ export function HistoryPage() {
   };
 
   // 获取力量训练统计
+  // 区分完成组与计划组：历史摘要只显示完成组
   const getStrengthStats = (session: TrainingSession) => {
     let exerciseCount = 0;
-    let totalSets = 0;
+    let totalCompletedSets = 0;
+    let totalPlannedSets = 0;
     session.exercises.forEach(exercise => {
       if (exercise.type === 'strength') {
         exerciseCount++;
-        totalSets += exercise.sets.length;
+        totalPlannedSets += exercise.sets.length;
+        totalCompletedSets += exercise.sets.filter(set => Boolean(set.completedAt)).length;
       }
     });
-    return { exerciseCount, totalSets };
+    return { exerciseCount, totalCompletedSets, totalPlannedSets };
   };
 
   // 渲染训练记录项
@@ -202,7 +210,10 @@ export function HistoryPage() {
     const sessionType = getSessionType(session);
     const cardioStats = getCardioStats(session);
     const strengthStats = getStrengthStats(session);
-    const totalMinutes = calculateSessionDuration(session.startedAt, session.endedAt);
+    // 总时长优先使用结算的 elapsedSeconds（排除暂停时间）；无则回退到墙上时间
+    const durationSeconds = session.elapsedSeconds
+      ?? calculateSessionDuration(session.startedAt, session.endedAt) * 60;
+    const totalMinutes = Math.round(durationSeconds / 60);
 
     // 构建副标题摘要：力量摘要 + 有氧摘要 + 总训练时长
     const buildSummary = (): string => {
@@ -216,7 +227,8 @@ export function HistoryPage() {
           parts.push(`${cardioStats.distance.toFixed(1)}公里`);
         }
       } else if (sessionType === 'mixed') {
-        parts.push(`力量 ${strengthStats.exerciseCount}动作/${strengthStats.totalSets}组`);
+        // 力量摘要显示 完成/计划 组数
+        parts.push(`力量 ${strengthStats.exerciseCount}动作/${strengthStats.totalCompletedSets}/${strengthStats.totalPlannedSets}组`);
         if (cardioStats.count > 0) {
           const cardioParts: string[] = [`${cardioStats.count}动作`];
           if (cardioStats.durationSeconds > 0) {
@@ -227,7 +239,8 @@ export function HistoryPage() {
       } else {
         // strength
         parts.push(`${strengthStats.exerciseCount}个动作`);
-        parts.push(`${strengthStats.totalSets}组`);
+        // 显示 完成/计划 组数
+        parts.push(`${strengthStats.totalCompletedSets}/${strengthStats.totalPlannedSets}组`);
       }
       parts.push(`总时长${totalMinutes}分钟`);
       return parts.join(' · ');
@@ -385,7 +398,7 @@ export function HistoryPage() {
         {/* 搜索框 */}
         <TextField
           fullWidth
-          placeholder="搜索动作、计划或日期..."
+          placeholder="搜索训练日、动作、计划或日期..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           sx={{
@@ -569,7 +582,10 @@ export function HistoryPage() {
 
               {selectedSession.endedAt && (
                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                  时长: {formatDuration(calculateSessionDuration(selectedSession.startedAt, selectedSession.endedAt))}
+                  时长: {formatDuration(
+                    Math.round((selectedSession.elapsedSeconds
+                      ?? calculateSessionDuration(selectedSession.startedAt, selectedSession.endedAt) * 60) / 60),
+                  )}
                 </Typography>
               )}
 
@@ -683,7 +699,7 @@ function ExerciseDetail({
               )}
               {record.incline != null && (
                 <Typography variant="body2" color="text.secondary">
-                  坡度: {record.incline}
+                  坡度: {record.incline}%
                 </Typography>
               )}
               {record.distance != null && (
@@ -694,6 +710,16 @@ function ExerciseDetail({
               {record.calories != null && (
                 <Typography variant="body2" color="text.secondary">
                   消耗: {record.calories} kcal
+                </Typography>
+              )}
+              {record.pace != null && (
+                <Typography variant="body2" color="text.secondary">
+                  平均配速: {record.pace} /500m
+                </Typography>
+              )}
+              {record.resistance != null && (
+                <Typography variant="body2" color="text.secondary">
+                  阻力等级: {record.resistance}
                 </Typography>
               )}
               {record.rpe != null && (

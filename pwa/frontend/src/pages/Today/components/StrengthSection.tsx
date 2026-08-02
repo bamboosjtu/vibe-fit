@@ -5,8 +5,9 @@ import {
   CheckRounded as CheckIcon,
   ExpandMoreRounded as ExpandIcon,
 } from '@mui/icons-material';
-import type { ExerciseGroup, TrainingDay, TrainingPhase } from '../../../types';
-import { useSessionStore } from '../../../stores';
+import type { ExerciseGroup, TrainingDay } from '../../../types';
+import { useSessionStore, usePlanStore } from '../../../stores';
+import { buildTrainingContext, type PhaseViewModel } from '../../../domain/trainingContext';
 import { ExerciseCard } from './ExerciseCard';
 
 interface StrengthSectionProps {
@@ -15,6 +16,16 @@ interface StrengthSectionProps {
 }
 
 export function StrengthSection({ todayDay, onOpenGroupSelector }: StrengthSectionProps) {
+  const activeSession = useSessionStore(state => state.activeSession);
+  const { currentPlan } = usePlanStore();
+
+  // 统一从 domain 层获取阶段 ViewModel，UI 不再自行计算 isComplete
+  const ctx = useMemo(
+    () => buildTrainingContext(currentPlan, todayDay, activeSession),
+    [currentPlan, todayDay, activeSession],
+  );
+  const phaseViewModels = ctx.phaseViewModels;
+
   if (!todayDay || !todayDay.phases || todayDay.phases.length === 0) {
     return (
       <Box sx={{ textAlign: 'center', py: 7 }}>
@@ -23,15 +34,19 @@ export function StrengthSection({ todayDay, onOpenGroupSelector }: StrengthSecti
     );
   }
 
+  if (phaseViewModels.length === 0) {
+    return null;
+  }
+
   return (
     <Box sx={{ pb: 1 }}>
       <Box sx={{ display: 'grid', gap: 1.25 }}>
-        {todayDay.phases.map((phase, phaseIndex) => (
+        {phaseViewModels.map((phaseVM, phaseIndex) => (
           <PhaseSection
-            key={phase.id}
-            phase={phase}
+            key={phaseVM.id}
+            phaseVM={phaseVM}
             phaseIndex={phaseIndex}
-            initiallyExpanded={phaseIndex === 0}
+            todayDay={todayDay}
             onOpenGroupSelector={onOpenGroupSelector}
           />
         ))}
@@ -41,42 +56,55 @@ export function StrengthSection({ todayDay, onOpenGroupSelector }: StrengthSecti
 }
 
 function PhaseSection({
-  phase,
+  phaseVM,
   phaseIndex,
-  initiallyExpanded,
+  todayDay,
   onOpenGroupSelector,
 }: {
-  phase: TrainingPhase;
+  phaseVM: PhaseViewModel;
   phaseIndex: number;
-  initiallyExpanded: boolean;
+  todayDay: TrainingDay;
   onOpenGroupSelector: (phaseId: string, group: ExerciseGroup) => void;
 }) {
-  const [isExpanded, setIsExpanded] = useState(initiallyExpanded);
+  // 默认展开当前阶段；阶段完成后自动展开下一个未完成阶段（由 phaseVM.status 驱动）
+  const [isExpanded, setIsExpanded] = useState(phaseVM.status === 'current');
+  // 跟踪上次 status，用于在 status 切换为 current 时自动展开（render 阶段调整 state，避免 effect 级联渲染）
+  const [prevStatus, setPrevStatus] = useState(phaseVM.status);
+  if (phaseVM.status !== prevStatus) {
+    setPrevStatus(phaseVM.status);
+    if (phaseVM.status === 'current' && !isExpanded) {
+      setIsExpanded(true);
+    }
+  }
   const activeSession = useSessionStore(state => state.activeSession);
 
-  const exercisesByGroup = useMemo(() => phase.groups.map(group => ({
-    group,
-    exercises: activeSession?.exercises.filter(exercise => {
-      if (exercise.groupId === group.id) return true;
-      if (exercise.groupId === 'legacy' || !exercise.groupId) {
-        return group.availableExercises.some(candidate => candidate.exerciseId === exercise.exerciseId);
-      }
-      return false;
-    }) ?? [],
-  })), [activeSession, phase.groups]);
+  // 通过 phaseId + groups 查找原始 phase 数据（用于渲染 group 列表）
+  const phase = todayDay.phases.find(p => p.id === phaseVM.id);
+
+  const exercisesByGroup = useMemo(() => {
+    if (!phase) return [];
+    return phase.groups.map(group => ({
+      group,
+      exercises: activeSession?.exercises.filter(exercise => {
+        if (exercise.groupId === group.id) return true;
+        if (exercise.groupId === 'legacy' || !exercise.groupId) {
+          return group.availableExercises.some(candidate => candidate.exerciseId === exercise.exerciseId);
+        }
+        return false;
+      }) ?? [],
+    }));
+  }, [activeSession, phase]);
 
   const phaseExercises = exercisesByGroup.flatMap(item => item.exercises);
-  const isComplete = phaseExercises.length > 0 && phaseExercises.every(exercise =>
-    exercise.sets.length > 0 && exercise.sets.every(set => Boolean(set.completedAt)),
-  );
-  const displayCount = phaseExercises.length || phase.groups.length;
+  // 完成状态直接来自 domain 层 ViewModel
+  const isComplete = phaseVM.status === 'completed';
 
   return (
     <Box
       sx={{
         overflow: 'hidden',
         border: '1px solid',
-        borderColor: 'divider',
+        borderColor: phaseVM.status === 'current' ? 'rgba(5,169,120,0.36)' : 'divider',
         borderRadius: '8px',
         bgcolor: 'background.paper',
         boxShadow: isExpanded ? '0 7px 20px rgba(15, 23, 42, 0.045)' : 'none',
@@ -111,18 +139,19 @@ function PhaseSection({
             display: 'grid',
             placeItems: 'center',
             borderRadius: '50%',
-            bgcolor: '#05a978',
-            color: '#fff',
+            bgcolor: isComplete ? '#05a978' : phaseVM.status === 'current' ? '#05a978' : '#e2e5eb',
+            color: isComplete || phaseVM.status === 'current' ? '#fff' : 'text.secondary',
             fontSize: '0.95rem',
             fontWeight: 900,
-            boxShadow: '0 3px 8px rgba(5, 169, 120, 0.18)',
+            boxShadow: phaseVM.status === 'current' ? '0 3px 8px rgba(5, 169, 120, 0.18)' : 'none',
+            border: isComplete ? 'none' : phaseVM.status === 'current' ? 'none' : '1.5px solid #d7dbe2',
           }}
         >
           {isComplete ? <CheckIcon sx={{ fontSize: 21 }} /> : phaseIndex + 1}
         </Box>
-        <Typography sx={{ flex: 1, fontSize: '1rem', fontWeight: 900 }}>{phase.name}</Typography>
+        <Typography sx={{ flex: 1, fontSize: '1rem', fontWeight: 900 }}>{phaseVM.name}</Typography>
         <Typography sx={{ color: 'text.secondary', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
-          {displayCount} 个动作
+          {phaseVM.selectedGroupCount}/{phaseVM.requiredGroupCount} 组动作 · {phaseVM.completedSets}/{phaseVM.targetSets || phaseExercises.length} 完成
         </Typography>
         <ExpandIcon
           sx={{
@@ -134,7 +163,7 @@ function PhaseSection({
         />
       </Box>
 
-      {isExpanded && (
+      {isExpanded && phase && (
         <Box sx={{ px: 0.75, pb: 0.75, animation: 'todaySectionReveal 200ms ease-out' }}>
           {phaseExercises.length === 0 ? (
             <Box sx={{ borderTop: '1px solid', borderColor: 'divider', px: 1, py: 1.25 }}>

@@ -93,7 +93,12 @@ interface SessionState {
   resumeCardio: (sessionExerciseId: string) => void;
   completeCardio: (
     sessionExerciseId: string,
-    metrics?: Partial<Pick<CardioRecord, 'speed' | 'incline' | 'distance' | 'calories' | 'rpe'>>,
+    metrics?: Partial<Pick<CardioRecord, 'speed' | 'incline' | 'distance' | 'calories' | 'pace' | 'resistance' | 'rpe'>>,
+  ) => void;
+  // 节流更新运行中的有氧指标，防止切换页签/刷新丢失输入
+  updateCardioMetrics: (
+    sessionExerciseId: string,
+    metrics: Partial<Pick<CardioRecord, 'speed' | 'incline' | 'distance' | 'calories' | 'pace' | 'resistance' | 'rpe'>>,
   ) => void;
   cancelCardio: (sessionExerciseId: string) => void;
   hasActiveCardio: () => boolean;
@@ -109,6 +114,21 @@ interface SessionState {
 
 // 串行写入队列，防止旧写入覆盖新状态
 let writeQueue: Promise<void> = Promise.resolve();
+
+// 有氧指标输入节流：避免每次按键都触发 _persistPending
+// 输入后等待 800ms 无新输入再持久化，防止切换页签/刷新丢失
+let cardioMetricsPersistTimer: ReturnType<typeof setTimeout> | null = null;
+function scheduleCardioMetricsPersist(): void {
+  if (cardioMetricsPersistTimer) {
+    clearTimeout(cardioMetricsPersistTimer);
+  }
+  cardioMetricsPersistTimer = setTimeout(() => {
+    cardioMetricsPersistTimer = null;
+    // 通过 useSessionStore.getState 获取最新 _persistPending，避免闭包陈旧
+    const store = (useSessionStore as unknown as { getState: () => SessionState });
+    store.getState()._persistPending();
+  }, 800);
+}
 
 export const useSessionStore = create<SessionState>((set, get) => ({
   sessions: [],
@@ -615,6 +635,29 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       } : null,
     }));
     get()._persistPending();
+  },
+
+  updateCardioMetrics: (sessionExerciseId, metrics) => {
+    const { activeSession } = get();
+    if (!activeSession) return;
+
+    const exercise = activeSession.exercises.find((e) => e.id === sessionExerciseId);
+    if (!exercise?.cardioRecord) return;
+    // 仅 running/paused 状态允许更新指标
+    if (exercise.cardioRecord.status !== 'running' && exercise.cardioRecord.status !== 'paused') return;
+
+    set((state) => ({
+      activeSession: state.activeSession ? {
+        ...state.activeSession,
+        exercises: state.activeSession.exercises.map((e) =>
+          e.id === sessionExerciseId
+            ? { ...e, cardioRecord: { ...e.cardioRecord!, ...metrics } }
+            : e,
+        ),
+      } : null,
+    }));
+    // 节流持久化：避免每次按键都写库
+    scheduleCardioMetricsPersist();
   },
 
   cancelCardio: (sessionExerciseId) => {

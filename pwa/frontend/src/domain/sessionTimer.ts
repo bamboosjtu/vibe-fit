@@ -425,7 +425,7 @@ export function resumeCardioRecord(
 /** 完成有氧记录：结算最后运行区间，设 endedAt */
 export function completeCardioRecord(
   record: CardioRecord,
-  metrics: Partial<Pick<CardioRecord, 'speed' | 'incline' | 'distance' | 'calories' | 'rpe'>> = {},
+  metrics: Partial<Pick<CardioRecord, 'speed' | 'incline' | 'distance' | 'calories' | 'pace' | 'resistance' | 'rpe'>> = {},
   now: number = Date.now(),
 ): CardioRecord {
   return {

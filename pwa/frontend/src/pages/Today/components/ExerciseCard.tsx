@@ -223,10 +223,8 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
                 key={set.id}
                 set={set}
                 isCurrent={isCurrent}
-                canDelete={sets.length > 1}
                 onToggle={() => handleSetToggle(set.id, Boolean(set.completedAt))}
                 onUpdate={updates => updateSet(sessionExercise.id, set.id, updates)}
-                onDelete={() => setDeleteSetId(set.id)}
               />
             );
           })}
@@ -241,8 +239,8 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
             </Box>
           )}
 
-          {/* 操作区：紧邻组记录 */}
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.25, mt: 0.55 }}>
+          {/* 操作区：紧邻组记录。删除组作为次级操作，需确认 */}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.25, mt: 0.55, flexWrap: 'wrap' }}>
             <Button
               data-testid="copy-last-set-button"
               size="small"
@@ -270,6 +268,20 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
               sx={actionButtonStyle}
             >
               添加组
+            </Button>
+            <Button
+              data-testid="delete-last-set-button"
+              size="small"
+              startIcon={<DeleteIcon />}
+              disabled={sets.length === 0}
+              onClick={() => {
+                // 删除最后一组：已填写的训练组需要确认
+                const last = sets[sets.length - 1];
+                if (last) setDeleteSetId(last.id);
+              }}
+              sx={{ ...actionButtonStyle, color: 'text.secondary' }}
+            >
+              删除末组
             </Button>
           </Box>
         </Box>
@@ -356,13 +368,11 @@ function TableHeader() {
   );
 }
 
-function SetRow({ set, isCurrent, canDelete, onToggle, onUpdate, onDelete }: {
+function SetRow({ set, isCurrent, onToggle, onUpdate }: {
   set: SetRecord;
   isCurrent: boolean;
-  canDelete: boolean;
   onToggle: () => void;
   onUpdate: (updates: Partial<SetRecord>) => void;
-  onDelete: () => void;
 }) {
   const isCompleted = Boolean(set.completedAt);
 
@@ -428,10 +438,10 @@ function SetRow({ set, isCurrent, canDelete, onToggle, onUpdate, onDelete }: {
           style: { textAlign: 'center', fontWeight: 800 },
         }}
       />
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.25 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <IconButton
           data-testid={`set-${set.setNumber}-complete-button`}
-          aria-label={`完成第 ${set.setNumber} 组`}
+          aria-label={isCompleted ? `取消第 ${set.setNumber} 组完成` : `完成第 ${set.setNumber} 组`}
           onClick={onToggle}
           sx={{
             width: 44,
@@ -445,16 +455,6 @@ function SetRow({ set, isCurrent, canDelete, onToggle, onUpdate, onDelete }: {
         >
           {isCompleted && <CheckIcon sx={{ fontSize: 24 }} />}
         </IconButton>
-        {canDelete && (
-          <IconButton
-            size="small"
-            aria-label={`删除第 ${set.setNumber} 组`}
-            onClick={onDelete}
-            sx={{ color: 'text.secondary', opacity: 0.5, '&:hover': { opacity: 1, color: 'error.main' } }}
-          >
-            <DeleteIcon sx={{ fontSize: 16 }} />
-          </IconButton>
-        )}
       </Box>
     </Box>
   );

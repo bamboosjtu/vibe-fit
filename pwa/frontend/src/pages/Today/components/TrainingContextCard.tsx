@@ -90,17 +90,17 @@ export function TrainingContextCard({ todayDay, currentPlan }: TrainingContextCa
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.55 }}>
               <CalendarIcon sx={{ fontSize: 18 }} />
               <Typography sx={{ fontSize: '0.72rem', whiteSpace: 'nowrap' }}>
-                第 {ctx.dayIndex} 练 / 共 {ctx.totalDays} 练
+                训练日 {ctx.dayIndex}/{ctx.totalDays}
               </Typography>
             </Box>
           )}
           {ctx.estimatedMinutes && (
             <>
               {!ctx.isFreeTraining && <Box sx={{ width: '1px', height: 14, bgcolor: 'divider' }} />}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.55 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.55 }} title="基于训练组数的估算值，仅供参考">
                 <TimerIcon sx={{ fontSize: 18 }} />
                 <Typography sx={{ fontSize: '0.72rem', whiteSpace: 'nowrap' }}>
-                  预计 {ctx.estimatedMinutes} 分钟
+                  约 {ctx.estimatedMinutes} 分钟
                 </Typography>
               </Box>
             </>
