@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Button, Chip, Typography } from '@mui/material';
 import {
@@ -7,61 +6,47 @@ import {
   SwapHorizRounded as SwitchIcon,
   TimerOutlined as TimerIcon,
 } from '@mui/icons-material';
-import type { TrainingDay, TrainingPlan } from '../../../types';
 import { useSessionStore } from '../../../stores';
+import { buildTrainingContext, type SessionRuntimeStatus } from '../../../domain/trainingContext';
+import type { TrainingDay, TrainingPlan } from '../../../types';
 
 interface TrainingContextCardProps {
   todayDay: TrainingDay | null;
   currentPlan: TrainingPlan | null;
 }
 
+/** 状态标签文案与样式 */
+function getStatusBadge(status: SessionRuntimeStatus): { label: string; bgcolor: string; color: string } {
+  switch (status) {
+    case 'running':
+      return { label: '进行中', bgcolor: '#07a978', color: '#fff' };
+    case 'paused':
+      return { label: '已暂停', bgcolor: 'rgba(245, 158, 11, 0.12)', color: '#b45309' };
+    case 'completed':
+      return { label: '已完成', bgcolor: 'rgba(5,169,120,0.09)', color: '#078763' };
+    case 'idle':
+    default:
+      return { label: '准备中', bgcolor: 'rgba(5,169,120,0.09)', color: '#078763' };
+  }
+}
+
 export function TrainingContextCard({ todayDay, currentPlan }: TrainingContextCardProps) {
   const navigate = useNavigate();
   const activeSession = useSessionStore(state => state.activeSession);
 
-  // 计算阶段完成状态
-  const phaseProgress = useMemo(() => {
-    if (!todayDay?.phases || !activeSession) return [];
-    return todayDay.phases.map((phase) => {
-      const phaseExercises = activeSession.exercises.filter(
-        (ex) => ex.phaseId === phase.id || ex.groupId === 'legacy' || !ex.groupId,
-      );
-      if (phaseExercises.length === 0) {
-        return { id: phase.id, status: 'upcoming' as const };
-      }
-      const allComplete = phaseExercises.every(
-        (ex) => ex.sets.length > 0 && ex.sets.every((s) => Boolean(s.completedAt)),
-      );
-      if (allComplete) {
-        return { id: phase.id, status: 'completed' as const };
-      }
-      const anyComplete = phaseExercises.some(
-        (ex) => ex.sets.some((s) => Boolean(s.completedAt)),
-      );
-      return { id: phase.id, status: anyComplete ? 'current' as const : 'upcoming' as const };
-    });
-  }, [todayDay, activeSession]);
+  // 统一通过 ViewModel 构建训练上下文，不再临时拼接
+  const ctx = buildTrainingContext(currentPlan, todayDay, activeSession);
 
-  if (!todayDay) return null;
+  if (ctx.isFreeTraining && !activeSession) {
+    // 无计划且无活动会话：不渲染（由 TodayPage 显示空状态）
+    return null;
+  }
 
-  const currentDayIndex = currentPlan?.currentDayIndex ?? 0;
-  const totalDays = currentPlan?.days.length ?? 1;
-
-  // 预计时长（从目标组数估算）
-  const targetSets = todayDay.phases?.reduce(
-    (phaseTotal, phase) =>
-      phaseTotal + phase.groups.reduce((groupTotal, group) => groupTotal + (group.targetTotalSets ?? 3), 0),
-    0,
-  ) ?? 0;
-  const estimatedMinutes = targetSets > 0 ? Math.max(30, Math.round((targetSets * 2.15) / 5) * 5) : null;
-
-  // 分段进度条：优先使用阶段数量，无阶段时使用天数
-  const segments = phaseProgress.length > 0
-    ? phaseProgress
-    : Array.from({ length: Math.max(6, totalDays) }, (_, i) => ({
-        id: `day-${i}`,
-        status: i < currentDayIndex ? 'completed' as const : i === currentDayIndex ? 'current' as const : 'upcoming' as const,
-      }));
+  const statusBadge = getStatusBadge(ctx.runtimeStatus);
+  const segments = ctx.phases.length > 0
+    ? ctx.phases
+    : // 自由训练或无阶段数据：显示单一进度条
+      [{ id: 'single', status: ctx.runtimeStatus === 'running' ? 'current' as const : 'upcoming' as const }];
 
   return (
     <Box sx={{ pt: 1.5, pb: 2.1 }}>
@@ -77,16 +62,21 @@ export function TrainingContextCard({ todayDay, currentPlan }: TrainingContextCa
             letterSpacing: '-0.025em',
           }}
         >
-          {todayDay.name} · Day {currentDayIndex + 1}
+          {ctx.dayName}
+          {!ctx.isFreeTraining && ctx.dayIndex && (
+            <Typography component="span" sx={{ color: 'text.secondary', fontSize: '0.85em', fontWeight: 700, ml: 0.6 }}>
+              · Day {ctx.dayIndex}
+            </Typography>
+          )}
         </Typography>
         <Chip
           size="small"
-          label={activeSession ? '进行中' : '待开始'}
+          label={statusBadge.label}
           sx={{
             height: 23,
             borderRadius: '999px',
-            bgcolor: activeSession ? '#07a978' : 'rgba(5,169,120,0.09)',
-            color: activeSession ? '#fff' : '#078763',
+            bgcolor: statusBadge.bgcolor,
+            color: statusBadge.color,
             fontSize: '0.7rem',
             fontWeight: 800,
           }}
@@ -95,22 +85,32 @@ export function TrainingContextCard({ todayDay, currentPlan }: TrainingContextCa
 
       {/* 元信息行 + 切换计划入口 */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mt: 1.15 }}>
-        <Box sx={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.85, color: 'text.secondary' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.55 }}>
-            <CalendarIcon sx={{ fontSize: 18 }} />
-            <Typography sx={{ fontSize: '0.72rem', whiteSpace: 'nowrap' }}>
-              第 {currentDayIndex + 1} 练 / 共 {totalDays} 练
-            </Typography>
-          </Box>
-          {estimatedMinutes && (
+        <Box sx={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.85, color: 'text.secondary', flexWrap: 'wrap' }}>
+          {!ctx.isFreeTraining && ctx.dayIndex && ctx.totalDays && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.55 }}>
+              <CalendarIcon sx={{ fontSize: 18 }} />
+              <Typography sx={{ fontSize: '0.72rem', whiteSpace: 'nowrap' }}>
+                第 {ctx.dayIndex} 练 / 共 {ctx.totalDays} 练
+              </Typography>
+            </Box>
+          )}
+          {ctx.estimatedMinutes && (
             <>
-              <Box sx={{ width: '1px', height: 14, bgcolor: 'divider' }} />
+              {!ctx.isFreeTraining && <Box sx={{ width: '1px', height: 14, bgcolor: 'divider' }} />}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.55 }}>
                 <TimerIcon sx={{ fontSize: 18 }} />
                 <Typography sx={{ fontSize: '0.72rem', whiteSpace: 'nowrap' }}>
-                  预计 {estimatedMinutes} 分钟
+                  预计 {ctx.estimatedMinutes} 分钟
                 </Typography>
               </Box>
+            </>
+          )}
+          {ctx.currentPhaseIndex && ctx.totalPhases > 0 && (
+            <>
+              <Box sx={{ width: '1px', height: 14, bgcolor: 'divider' }} />
+              <Typography sx={{ fontSize: '0.72rem', whiteSpace: 'nowrap' }}>
+                阶段 {ctx.currentPhaseIndex}/{ctx.totalPhases}
+              </Typography>
             </>
           )}
         </Box>
@@ -138,7 +138,7 @@ export function TrainingContextCard({ todayDay, currentPlan }: TrainingContextCa
         </Button>
       </Box>
 
-      {/* 分段进度条：优先对应训练阶段数量 */}
+      {/* 分段进度条：由阶段状态驱动 */}
       <Box aria-label="训练阶段进度" sx={{ display: 'grid', gridTemplateColumns: `repeat(${segments.length}, 1fr)`, gap: 0.6, mt: 1.45 }}>
         {segments.map((seg) => (
           <Box

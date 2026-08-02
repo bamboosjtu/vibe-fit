@@ -6,7 +6,7 @@ import {
   PlayArrowRounded as PlayIcon,
 } from '@mui/icons-material';
 import { useSessionStore, usePlanStore } from '../../stores';
-import { ExerciseSelector } from '../../components/ExerciseSelector';
+import { ExerciseSelector, type SelectorContext } from '../../components/ExerciseSelector';
 import { LoadingState } from '../../components/LoadingState';
 import { WorkoutIcon } from '../../components/WorkoutArtwork';
 import { TrainingHeader } from './components/TrainingHeader';
@@ -35,7 +35,7 @@ export function TodayPage() {
 
   const [trainingMode, setTrainingMode] = useState<'strength' | 'cardio'>('strength');
   const [showGroupSelector, setShowGroupSelector] = useState(false);
-  const [selectedGroupContext, setSelectedGroupContext] = useState<{ phaseId: string, group: ExerciseGroup } | null>(null);
+  const [selectorContext, setSelectorContext] = useState<SelectorContext | null>(null);
   const [initialized, setInitialized] = useState(false);
   const [showCardioEndDialog, setShowCardioEndDialog] = useState(false);
 
@@ -126,7 +126,17 @@ export function TodayPage() {
   };
 
   const handleOpenGroupSelector = (phaseId: string, group: ExerciseGroup) => {
-    setSelectedGroupContext({ phaseId, group });
+    // 显式构建选择器上下文：禁止推断，附带当前组已添加动作用于去重
+    const addedExerciseIds = (activeSession?.exercises ?? [])
+      .filter((ex) => ex.groupId === group.id)
+      .map((ex) => ex.exerciseId);
+    setSelectorContext({
+      phaseId,
+      groupId: group.id,
+      groupName: group.name,
+      group,
+      addedExerciseIds,
+    });
     setShowGroupSelector(true);
   };
 
@@ -163,7 +173,11 @@ export function TodayPage() {
           flex: 1,
           overflow: 'auto',
           px: { xs: 2, sm: 3 },
-          pb: 'calc(var(--sticky-action-height) + 18px)',
+          pb: 'calc(var(--sticky-action-height) + 18px + env(safe-area-inset-bottom))',
+          // 响应式：桌面端内容居中，限制最大宽度，避免超长输入框和大片空白
+          maxWidth: { xs: '100%', sm: 720, md: 820 },
+          mx: 'auto',
+          width: '100%',
         }}
       >
         {trainingMode === 'strength' ? (
@@ -266,30 +280,34 @@ export function TodayPage() {
         )}
       </Paper>
 
-      {selectedGroupContext && (
-        <ExerciseSelector
-          open={showGroupSelector}
-          group={selectedGroupContext.group}
-          onClose={() => {
-            setShowGroupSelector(false);
-            setSelectedGroupContext(null);
-          }}
-          onSelect={(exercise) => {
-            // 确保会话已启动
-            ensureSession(currentPlan || undefined, todayDay || undefined);
+      <ExerciseSelector
+        open={showGroupSelector}
+        context={selectorContext}
+        onClose={() => {
+          setShowGroupSelector(false);
+          setSelectorContext(null);
+        }}
+        onSelect={(exercise, source, config) => {
+          // 确保会话已启动
+          ensureSession(currentPlan || undefined, todayDay || undefined);
 
-            // 添加动作
-            addExercise(
-              exercise,
-              selectedGroupContext.phaseId,
-              selectedGroupContext.group.id
-            );
+          // 添加动作，绑定原 phaseId/groupId；推荐动作继承计划配置
+          addExercise(
+            exercise,
+            selectorContext?.phaseId,
+            selectorContext?.groupId,
+            {
+              source,
+              targetSets: config?.targetSets,
+              targetReps: config?.targetReps,
+              restSeconds: config?.restSeconds,
+            },
+          );
 
-            setShowGroupSelector(false);
-            setSelectedGroupContext(null);
-          }}
-        />
-      )}
+          setShowGroupSelector(false);
+          setSelectorContext(null);
+        }}
+      />
 
       <SessionRecoveryDialog />
 

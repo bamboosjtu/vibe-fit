@@ -5,7 +5,6 @@ import {
   Card,
   Button,
   Chip,
-  IconButton,
   TextField,
 } from '@mui/material';
 import {
@@ -13,7 +12,6 @@ import {
   Pause as PauseIcon,
   Check as CheckIcon,
   RefreshRounded as RefreshIcon,
-  MoreVert as MoreIcon,
 } from '@mui/icons-material';
 import { useSessionStore } from '../../../stores';
 import { DEFAULT_EXERCISES } from '../../../constants/exercises';
@@ -22,10 +20,44 @@ import {
   computeCardioElapsedSeconds,
   formatTimer,
 } from '../../../domain/sessionTimer';
-import type { Exercise, SessionExercise } from '../../../types';
+import type { Exercise, SessionExercise, CardioRecord } from '../../../types';
+
+/**
+ * 器械指标字段配置。
+ * 不同器械展示不同的指标输入，数据结构支持后续扩展。
+ * 来源：docs/ui_brief/今日训练.md 第 6.3 节
+ */
+interface MetricField {
+  key: 'speed' | 'incline' | 'distance' | 'calories' | 'rpe' | 'pace' | 'resistance';
+  label: string;
+  unit?: string;
+}
+
+const EQUIPMENT_METRICS: Record<string, MetricField[]> = {
+  // 跑步机：时长、速度、坡度、距离、卡路里
+  'treadmill': [
+    { key: 'speed', label: '速度', unit: 'km/h' },
+    { key: 'incline', label: '坡度', unit: '%' },
+    { key: 'distance', label: '距离', unit: 'km' },
+    { key: 'calories', label: '卡路里', unit: 'kcal' },
+  ],
+  // 椭圆机：时长、阻力等级、距离、卡路里
+  'elliptical': [
+    { key: 'resistance', label: '阻力等级' },
+    { key: 'distance', label: '距离', unit: 'km' },
+    { key: 'calories', label: '卡路里', unit: 'kcal' },
+  ],
+  // 划船机：时长、距离、平均配速、阻力等级
+  'rowing-machine': [
+    { key: 'distance', label: '距离', unit: 'm' },
+    { key: 'pace', label: '平均配速', unit: '/500m' },
+    { key: 'resistance', label: '阻力等级' },
+  ],
+};
 
 export function CardioSection() {
   const activeSession = useSessionStore(state => state.activeSession);
+  // 仅展示有图片资源占位的 3 类有氧器械
   const cardioExercises = DEFAULT_EXERCISES.filter((e) => e.type === 'cardio');
 
   // 将动作库与 session 中的有氧记录配对
@@ -62,12 +94,12 @@ function CardioCard({ exercise, sessionExercise }: CardioCardProps) {
 
   const record = sessionExercise?.cardioRecord;
   const status = record?.status ?? 'idle';
+  const metricFields = EQUIPMENT_METRICS[exercise.id] ?? [];
 
   // 目标时长输入（分钟）
   const [targetMinutes, setTargetMinutes] = useState('30');
-  // 运行中指标输入
-  const [speed, setSpeed] = useState('');
-  const [incline, setIncline] = useState('');
+  // 运行中指标输入（动态根据器械字段）
+  const [metricValues, setMetricValues] = useState<Record<string, string>>({});
 
   // setInterval 仅触发 UI 重绘，有氧计时数据由时间戳实时计算
   const [, setTick] = useState(0);
@@ -94,10 +126,21 @@ function CardioCard({ exercise, sessionExercise }: CardioCardProps) {
 
   const handleComplete = () => {
     if (!sessionExercise) return;
-    completeCardio(sessionExercise.id, {
-      speed: speed ? Number(speed) : undefined,
-      incline: incline ? Number(incline) : undefined,
-    });
+    // 提交指标：仅包含有值的字段
+    const metrics: Partial<Pick<CardioRecord, 'speed' | 'incline' | 'distance' | 'calories' | 'rpe'>> = {};
+    for (const field of metricFields) {
+      const v = metricValues[field.key];
+      if (v && v !== '') {
+        const num = Number(v);
+        if (!isNaN(num)) {
+          // pace/resistance 字段不在 CardioRecord 中，跳过（数据结构扩展时再支持）
+          if (field.key === 'speed' || field.key === 'incline' || field.key === 'distance' || field.key === 'calories') {
+            metrics[field.key] = num;
+          }
+        }
+      }
+    }
+    completeCardio(sessionExercise.id, metrics);
   };
 
   const handleRestart = () => {
@@ -120,10 +163,11 @@ function CardioCard({ exercise, sessionExercise }: CardioCardProps) {
       }}
     >
       <Box sx={{ p: 1.5 }}>
+        {/* 头部：器械图片 + 名称 + 状态标签 */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Box>
-              <ExerciseImage exerciseName={exercise.name} type="cardio" size={64} />
+              <ExerciseImage exerciseId={exercise.id} exerciseName={exercise.name} type="cardio" size={64} />
             </Box>
             <Box>
               <Typography variant="h6" fontWeight="bold" sx={{ fontFamily: 'var(--font-display)', fontSize: '1rem' }}>
@@ -138,11 +182,14 @@ function CardioCard({ exercise, sessionExercise }: CardioCardProps) {
               {status === 'completed' && (
                 <Chip size="small" label="已完成" sx={statusChipStyle('completed')} />
               )}
+              {status === 'idle' && (
+                <Chip size="small" label="未开始" sx={statusChipStyle('idle')} />
+              )}
             </Box>
           </Box>
-          <IconButton size="small"><MoreIcon /></IconButton>
         </Box>
 
+        {/* 四种状态分别渲染 */}
         {status === 'idle' && (
           <IdleState
             targetMinutes={targetMinutes}
@@ -155,10 +202,9 @@ function CardioCard({ exercise, sessionExercise }: CardioCardProps) {
           <ActiveState
             elapsedSeconds={elapsedSeconds}
             targetDurationSeconds={record?.targetDurationSeconds}
-            speed={speed}
-            incline={incline}
-            onSpeedChange={setSpeed}
-            onInclineChange={setIncline}
+            metricFields={metricFields}
+            metricValues={metricValues}
+            onMetricChange={(key, v) => setMetricValues(prev => ({ ...prev, [key]: v }))}
             isRunning={status === 'running'}
             onPause={handlePause}
             onResume={handleResume}
@@ -168,9 +214,8 @@ function CardioCard({ exercise, sessionExercise }: CardioCardProps) {
 
         {status === 'completed' && (
           <CompletedState
-            elapsedSeconds={record?.elapsedSeconds ?? 0}
-            speed={record?.speed}
-            incline={record?.incline}
+            record={record}
+            metricFields={metricFields}
             onRestart={handleRestart}
           />
         )}
@@ -178,6 +223,8 @@ function CardioCard({ exercise, sessionExercise }: CardioCardProps) {
     </Card>
   );
 }
+
+// ── 空闲状态 ──────────────────────────────────────────────
 
 function IdleState({
   targetMinutes,
@@ -199,7 +246,7 @@ function IdleState({
         fullWidth
         startIcon={<PlayIcon />}
         onClick={onStart}
-        sx={{ background: 'linear-gradient(135deg, #1F2937 0%, #374151 100%)' }}
+        sx={{ background: 'linear-gradient(135deg, #1F2937 0%, #374151 100%)', minHeight: 44 }}
       >
         开始有氧
       </Button>
@@ -207,13 +254,14 @@ function IdleState({
   );
 }
 
+// ── 运行/暂停状态 ─────────────────────────────────────────
+
 function ActiveState({
   elapsedSeconds,
   targetDurationSeconds,
-  speed,
-  incline,
-  onSpeedChange,
-  onInclineChange,
+  metricFields,
+  metricValues,
+  onMetricChange,
   isRunning,
   onPause,
   onResume,
@@ -221,10 +269,9 @@ function ActiveState({
 }: {
   elapsedSeconds: number;
   targetDurationSeconds?: number;
-  speed: string;
-  incline: string;
-  onSpeedChange: (v: string) => void;
-  onInclineChange: (v: string) => void;
+  metricFields: MetricField[];
+  metricValues: Record<string, string>;
+  onMetricChange: (key: string, v: string) => void;
   isRunning: boolean;
   onPause: () => void;
   onResume: () => void;
@@ -232,6 +279,7 @@ function ActiveState({
 }) {
   return (
     <>
+      {/* 实际时长 + 目标时长 */}
       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2, p: 2, bgcolor: 'rgba(16, 185, 129, 0.05)', borderRadius: '12px' }}>
         <MetricDisplay label="实际时长" value={formatTimer(elapsedSeconds)} />
         <MetricDisplay
@@ -239,10 +287,22 @@ function ActiveState({
           value={targetDurationSeconds ? `${Math.round(targetDurationSeconds / 60)} 分钟` : '未设定'}
         />
       </Box>
-      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2 }}>
-        <CardioInput label="速度(km/h)" value={speed} onChange={onSpeedChange} />
-        <CardioInput label="坡度" value={incline} onChange={onInclineChange} />
-      </Box>
+
+      {/* 器械特定指标输入 */}
+      {metricFields.length > 0 && (
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: '1fr 1fr 1fr 1fr' }, gap: 2, mb: 2 }}>
+          {metricFields.map((field) => (
+            <CardioInput
+              key={field.key}
+              label={`${field.label}${field.unit ? `(${field.unit})` : ''}`}
+              value={metricValues[field.key] ?? ''}
+              onChange={(v) => onMetricChange(field.key, v)}
+            />
+          ))}
+        </Box>
+      )}
+
+      {/* 控制按钮 */}
       <Box sx={{ display: 'flex', gap: 2 }}>
         {isRunning ? (
           <Button
@@ -252,6 +312,7 @@ function ActiveState({
             startIcon={<PauseIcon />}
             onClick={onPause}
             color="warning"
+            sx={{ minHeight: 44 }}
           >
             暂停
           </Button>
@@ -263,6 +324,7 @@ function ActiveState({
             startIcon={<PlayIcon />}
             onClick={onResume}
             color="primary"
+            sx={{ minHeight: 44 }}
           >
             继续
           </Button>
@@ -273,6 +335,7 @@ function ActiveState({
           fullWidth
           startIcon={<CheckIcon />}
           onClick={onComplete}
+          sx={{ minHeight: 44 }}
         >
           完成记录
         </Button>
@@ -281,29 +344,44 @@ function ActiveState({
   );
 }
 
+// ── 完成状态 ──────────────────────────────────────────────
+
 function CompletedState({
-  elapsedSeconds,
-  speed,
-  incline,
+  record,
+  metricFields,
   onRestart,
 }: {
-  elapsedSeconds: number;
-  speed?: number;
-  incline?: number;
+  record?: CardioRecord;
+  metricFields: MetricField[];
   onRestart: () => void;
 }) {
+  const elapsedSeconds = record?.elapsedSeconds ?? 0;
+
   return (
     <>
       <Box sx={{ p: 2, bgcolor: 'rgba(5, 169, 120, 0.05)', borderRadius: '12px', mb: 2 }}>
         <Typography sx={{ fontSize: '1.4rem', fontWeight: 900, fontVariantNumeric: 'tabular-nums', color: '#078c66' }}>
           已完成 {formatTimer(elapsedSeconds)}
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          {speed ? `${speed} km/h` : ''}
-          {speed && incline ? ' · ' : ''}
-          {incline ? `坡度 ${incline}` : ''}
-          {!speed && !incline ? '无额外指标' : ''}
-        </Typography>
+        {/* 展示已保存指标 */}
+        {metricFields.length > 0 && (
+          <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+            {metricFields.map((field) => {
+              const value = record?.[field.key as keyof CardioRecord];
+              if (value === undefined || value === null || typeof value !== 'number') return null;
+              return (
+                <Typography key={field.key} variant="body2" color="text.secondary" sx={{ fontSize: '0.82rem' }}>
+                  {field.label}: <strong>{value}{field.unit ? ` ${field.unit}` : ''}</strong>
+                </Typography>
+              );
+            })}
+            {metricFields.every((f) => record?.[f.key as keyof CardioRecord] === undefined) && (
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.82rem' }}>
+                无额外指标
+              </Typography>
+            )}
+          </Box>
+        )}
       </Box>
       <Button
         data-testid="cardio-restart-button"
@@ -311,12 +389,18 @@ function CompletedState({
         fullWidth
         startIcon={<RefreshIcon />}
         onClick={onRestart}
+        sx={{ minHeight: 44 }}
       >
         再次记录
       </Button>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, textAlign: 'center', fontSize: '0.7rem' }}>
+        注意：再次记录将覆盖当前已完成记录
+      </Typography>
     </>
   );
 }
+
+// ── 通用子组件 ────────────────────────────────────────────
 
 function MetricDisplay({ label, value }: { label: string; value: string }) {
   return (
@@ -339,15 +423,18 @@ function CardioInput({ label, value, onChange }: { label: string; value: string;
         size="small"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        sx={{ width: 80, '& .MuiOutlinedInput-root': { borderRadius: '10px', bgcolor: 'background.paper' } }}
+        type="number"
+        inputMode="decimal"
+        sx={{ width: '100%', maxWidth: 120, '& .MuiOutlinedInput-root': { borderRadius: '10px', bgcolor: 'background.paper' } }}
         inputProps={{ style: { fontSize: 18, fontWeight: 'bold', textAlign: 'center' } }}
       />
     </Box>
   );
 }
 
-function statusChipStyle(status: 'running' | 'paused' | 'completed') {
+function statusChipStyle(status: 'idle' | 'running' | 'paused' | 'completed') {
   const styles = {
+    idle: { height: 20, bgcolor: 'rgba(15, 23, 42, 0.06)', color: 'text.secondary', fontWeight: 600, fontSize: '0.7rem' },
     running: { height: 20, bgcolor: 'rgba(16, 185, 129, 0.1)', color: 'primary.main', fontWeight: 600, fontSize: '0.7rem' },
     paused: { height: 20, bgcolor: 'rgba(245, 158, 11, 0.1)', color: 'warning.main', fontWeight: 600, fontSize: '0.7rem' },
     completed: { height: 20, bgcolor: 'rgba(5, 169, 120, 0.1)', color: '#078c66', fontWeight: 600, fontSize: '0.7rem' },

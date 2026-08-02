@@ -3,6 +3,10 @@ import {
   Box,
   Button,
   Card,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   IconButton,
   ListItemIcon,
   ListItemText,
@@ -21,6 +25,7 @@ import {
   TimerOutlined as TimerIcon,
 } from '@mui/icons-material';
 import { useSessionStore } from '../../../stores';
+import { DEFAULT_EXERCISES } from '../../../constants/exercises';
 import type { SessionExercise, SetRecord } from '../../../types';
 import { DEFAULT_STRENGTH_REST_SECONDS } from '../../../types';
 import { ExerciseImage } from '../../../components/ExerciseImage';
@@ -38,6 +43,7 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
   const updateSet = useSessionStore(state => state.updateSet);
   const addSet = useSessionStore(state => state.addSet);
   const toggleSetCompleted = useSessionStore(state => state.toggleSetCompleted);
+  const deleteSet = useSessionStore(state => state.deleteSet);
   const removeExercise = useSessionStore(state => state.removeExercise);
   const startRestTimer = useSessionStore(state => state.startRestTimer);
   const stopRestTimer = useSessionStore(state => state.stopRestTimer);
@@ -46,6 +52,7 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
 
   const [isExpanded, setIsExpanded] = useState(true);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [deleteSetId, setDeleteSetId] = useState<string | null>(null);
   const sets = sessionExercise.sets || [];
   const completedCount = sets.filter(set => Boolean(set.completedAt)).length;
 
@@ -61,7 +68,6 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
   useEffect(() => {
     if (!isThisResting || restTimer.status !== 'running') return;
     const interval = setInterval(() => {
-      // 倒计时归零时自动切换为 idle
       if (isRestTimerExpired(restTimer)) {
         expireRestTimerIfEnded();
       }
@@ -73,13 +79,9 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
   const handleSetToggle = (setId: string, completed: boolean) => {
     toggleSetCompleted(sessionExercise.id, setId);
     if (!completed) {
-      // 未完成 -> 完成：启动该动作的休息计时
       startRestTimer(restSeconds, sessionExercise.id);
-    } else {
-      // 已完成 -> 取消完成：若当前休息计时由该组触发，则停止计时
-      if (isThisResting) {
-        stopRestTimer();
-      }
+    } else if (isThisResting) {
+      stopRestTimer();
     }
   };
 
@@ -92,6 +94,10 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
     removeExercise(sessionExercise.id);
     setAnchorEl(null);
   };
+
+  // 通过 exerciseId 查找动作库获取目标肌群（不再使用名称正则推断）
+  const exerciseDef = DEFAULT_EXERCISES.find((e) => e.id === sessionExercise.exerciseId);
+  const muscleLabel = exerciseDef?.muscleGroups?.join(' · ') ?? '目标肌群';
 
   return (
     <Card
@@ -106,6 +112,7 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
         '&:hover': { transform: 'none', boxShadow: 'none' },
       }}
     >
+      {/* 头部：点击区域排除菜单和休息计时 */}
       <Box
         onClick={() => setIsExpanded(value => !value)}
         sx={{
@@ -121,6 +128,7 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
       >
         <Box sx={{ width: 72, flexShrink: 0, display: 'grid', placeItems: 'center' }}>
           <ExerciseImage
+            exerciseId={sessionExercise.exerciseId}
             exerciseName={sessionExercise.exerciseName}
             type={sessionExercise.type}
             size={68}
@@ -141,7 +149,7 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
           >
             {sessionExercise.exerciseName}
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.55 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.55, flexWrap: 'wrap' }}>
             <Typography
               component="span"
               sx={{
@@ -154,7 +162,7 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
                 fontWeight: 700,
               }}
             >
-              {getMuscleLabel(sessionExercise)}
+              {muscleLabel}
             </Typography>
             <Typography sx={{ color: 'text.secondary', fontSize: '0.67rem' }}>
               {completedCount}/{sets.length} 组
@@ -162,12 +170,21 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
           </Box>
         </Box>
 
+        {/* 右侧操作：休息时间、更多菜单、展开按钮（独立点击区域） */}
         <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-          <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 0.4, color: 'text.secondary', mr: 0.15 }}>
+          <Box
+            onClick={(e) => e.stopPropagation()}
+            sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 0.4, color: 'text.secondary', mr: 0.15 }}
+          >
             <TimerIcon sx={{ fontSize: 19 }} />
             <Typography sx={{ fontSize: '0.72rem', whiteSpace: 'nowrap' }}>休息 {restSeconds} 秒</Typography>
           </Box>
-          <IconButton size="small" onClick={handleOpenMenu} sx={{ color: 'text.secondary' }}>
+          <IconButton
+            size="small"
+            onClick={handleOpenMenu}
+            sx={{ color: 'text.secondary', minWidth: 44, minHeight: 44, borderRadius: '6px' }}
+            aria-label="更多操作"
+          >
             <MoreIcon sx={{ fontSize: 20 }} />
           </IconButton>
           <ExpandIcon
@@ -194,39 +211,49 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
         </MenuItem>
       </Menu>
 
+      {/* 折叠状态下仍显示完成进度（在头部已展示） */}
       {isExpanded && (
         <Box sx={{ px: 1.25, pb: 1.25, animation: 'todaySectionReveal 180ms ease-out' }}>
           <Box sx={{ height: '1px', bgcolor: 'divider', mb: 0.4 }} />
           <TableHeader />
           {sets.map((set, index) => {
-            // 当前组：第一个未完成的组，使用品牌色边框高亮
             const isCurrent = !set.completedAt && sets.slice(0, index).every(s => Boolean(s.completedAt));
             return (
               <SetRow
                 key={set.id}
                 set={set}
                 isCurrent={isCurrent}
+                canDelete={sets.length > 1}
                 onToggle={() => handleSetToggle(set.id, Boolean(set.completedAt))}
                 onUpdate={updates => updateSet(sessionExercise.id, set.id, updates)}
+                onDelete={() => setDeleteSetId(set.id)}
               />
             );
           })}
 
+          {/* 休息计时条：点击区域不触发卡片折叠 */}
           {isThisResting && (
-            <RestTimerBar
-              remainingSeconds={computeRestRemaining(restTimer)}
-              onSkip={() => stopRestTimer()}
-            />
+            <Box onClick={(e) => e.stopPropagation()}>
+              <RestTimerBar
+                remainingSeconds={computeRestRemaining(restTimer)}
+                onSkip={() => stopRestTimer()}
+              />
+            </Box>
           )}
 
+          {/* 操作区：紧邻组记录 */}
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.25, mt: 0.55 }}>
             <Button
               data-testid="copy-last-set-button"
               size="small"
               startIcon={<CopyIcon />}
+              disabled={sets.length === 0}
               onClick={() => {
                 const last = sets[sets.length - 1];
-                if (last) addSet(sessionExercise.id, { weight: last.weight, reps: last.reps });
+                if (last) addSet(sessionExercise.id, {
+                  weight: last.weight,
+                  reps: last.reps,
+                });
               }}
               sx={actionButtonStyle}
             >
@@ -236,7 +263,10 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
               data-testid="add-set-button"
               size="small"
               startIcon={<AddIcon />}
-              onClick={() => addSet(sessionExercise.id, { weight: 0, reps: 12 })}
+              onClick={() => addSet(sessionExercise.id, {
+                // 新增组继承合理默认次数，但不伪造重量
+                reps: sets[sets.length - 1]?.reps ?? 12,
+              })}
               sx={actionButtonStyle}
             >
               添加组
@@ -244,6 +274,28 @@ export function ExerciseCard({ sessionExercise }: ExerciseCardProps) {
           </Box>
         </Box>
       )}
+
+      {/* 删除组确认对话框 */}
+      <Dialog open={deleteSetId !== null} onClose={() => setDeleteSetId(null)}>
+        <DialogTitle>删除该组？</DialogTitle>
+        <DialogContent>
+          <Typography>删除后无法恢复，确定要删除这组训练记录吗？</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteSetId(null)}>取消</Button>
+          <Button
+            color="error"
+            onClick={() => {
+              if (deleteSetId) {
+                deleteSet(sessionExercise.id, deleteSetId);
+              }
+              setDeleteSetId(null);
+            }}
+          >
+            删除
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Card>
   );
 }
@@ -278,7 +330,7 @@ function RestTimerBar({ remainingSeconds, onSkip }: { remainingSeconds: number; 
         sx={{
           justifySelf: 'end',
           minWidth: 66,
-          minHeight: 36,
+          minHeight: 44,
           borderWidth: '1px !important',
           borderColor: '#06a878',
           borderRadius: '6px',
@@ -295,7 +347,7 @@ function RestTimerBar({ remainingSeconds, onSkip }: { remainingSeconds: number; 
 function TableHeader() {
   return (
     <Box sx={tableGridStyle}>
-      {['组', '重量 (kg)', '次数 (次)', '完成'].map(label => (
+      {['组', '重量(kg)', '次数', '完成'].map(label => (
         <Typography key={label} sx={{ color: 'text.secondary', textAlign: 'center', fontSize: '0.68rem', fontWeight: 700 }}>
           {label}
         </Typography>
@@ -304,11 +356,13 @@ function TableHeader() {
   );
 }
 
-function SetRow({ set, isCurrent, onToggle, onUpdate }: {
+function SetRow({ set, isCurrent, canDelete, onToggle, onUpdate, onDelete }: {
   set: SetRecord;
   isCurrent: boolean;
+  canDelete: boolean;
   onToggle: () => void;
   onUpdate: (updates: Partial<SetRecord>) => void;
+  onDelete: () => void;
 }) {
   const isCompleted = Boolean(set.completedAt);
 
@@ -344,56 +398,71 @@ function SetRow({ set, isCurrent, onToggle, onUpdate }: {
       <TextField
         data-testid={`set-${set.setNumber}-weight-input`}
         size="small"
-        value={set.weight || ''}
+        // 空值与 0 必须区分：undefined 显示为空，0 显示为 0
+        value={set.weight ?? ''}
         type="number"
-        onChange={event => onUpdate({ weight: Number(event.target.value) })}
+        inputMode="decimal"
+        onChange={event => {
+          const v = event.target.value;
+          onUpdate({ weight: v === '' ? undefined : Number(v) });
+        }}
         sx={inputStyle(isCompleted, isCurrent)}
-        inputProps={{ 'aria-label': `第 ${set.setNumber} 组重量`, style: { textAlign: 'center', fontWeight: 800 } }}
+        inputProps={{
+          'aria-label': `第 ${set.setNumber} 组重量`,
+          style: { textAlign: 'center', fontWeight: 800 },
+        }}
       />
       <TextField
         data-testid={`set-${set.setNumber}-reps-input`}
         size="small"
-        value={set.reps || ''}
+        value={set.reps ?? ''}
         type="number"
-        onChange={event => onUpdate({ reps: Number(event.target.value) })}
-        sx={inputStyle(isCompleted, isCurrent)}
-        inputProps={{ 'aria-label': `第 ${set.setNumber} 组次数`, style: { textAlign: 'center', fontWeight: 800 } }}
-      />
-      <IconButton
-        data-testid={`set-${set.setNumber}-complete-button`}
-        aria-label={`完成第 ${set.setNumber} 组`}
-        onClick={onToggle}
-        sx={{
-          width: 52,
-          height: 34,
-          placeSelf: 'center',
-          borderRadius: '6px',
-          bgcolor: isCompleted ? '#05a978' : 'transparent',
-          border: isCompleted ? '1px solid #05a978' : isCurrent ? '1.5px solid #05a978' : '1.5px solid #d7dbe2',
-          color: isCompleted ? '#fff' : 'transparent',
-          '&:hover': { bgcolor: isCompleted ? '#058f68' : 'rgba(5,169,120,0.05)' },
+        inputMode="numeric"
+        onChange={event => {
+          const v = event.target.value;
+          onUpdate({ reps: v === '' ? undefined : Number(v) });
         }}
-      >
-        {isCompleted && <CheckIcon sx={{ fontSize: 24 }} />}
-      </IconButton>
+        sx={inputStyle(isCompleted, isCurrent)}
+        inputProps={{
+          'aria-label': `第 ${set.setNumber} 组次数`,
+          style: { textAlign: 'center', fontWeight: 800 },
+        }}
+      />
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.25 }}>
+        <IconButton
+          data-testid={`set-${set.setNumber}-complete-button`}
+          aria-label={`完成第 ${set.setNumber} 组`}
+          onClick={onToggle}
+          sx={{
+            width: 44,
+            height: 44,
+            borderRadius: '6px',
+            bgcolor: isCompleted ? '#05a978' : 'transparent',
+            border: isCompleted ? '1px solid #05a978' : isCurrent ? '1.5px solid #05a978' : '1.5px solid #d7dbe2',
+            color: isCompleted ? '#fff' : 'transparent',
+            '&:hover': { bgcolor: isCompleted ? '#058f68' : 'rgba(5,169,120,0.05)' },
+          }}
+        >
+          {isCompleted && <CheckIcon sx={{ fontSize: 24 }} />}
+        </IconButton>
+        {canDelete && (
+          <IconButton
+            size="small"
+            aria-label={`删除第 ${set.setNumber} 组`}
+            onClick={onDelete}
+            sx={{ color: 'text.secondary', opacity: 0.5, '&:hover': { opacity: 1, color: 'error.main' } }}
+          >
+            <DeleteIcon sx={{ fontSize: 16 }} />
+          </IconButton>
+        )}
+      </Box>
     </Box>
   );
 }
 
-function getMuscleLabel(exercise: SessionExercise) {
-  const value = `${exercise.exerciseId} ${exercise.exerciseName}`;
-  if (/胸|press|fly|push-up/i.test(value)) return '胸大肌';
-  if (/背|pull|row|划船|下拉|引体/i.test(value)) return '背阔肌';
-  if (/肩|raise|delt/i.test(value)) return '三角肌';
-  if (/弯举|curl|二头/i.test(value)) return '肱二头';
-  if (/三头|屈伸|pushdown/i.test(value)) return '肱三头';
-  if (/腿|蹲|squat|deadlift|臀/i.test(value)) return '下肢';
-  return '目标肌群';
-}
-
 const tableGridStyle = {
   display: 'grid',
-  gridTemplateColumns: '36px minmax(64px, 1fr) minmax(62px, 1fr) 58px',
+  gridTemplateColumns: '36px minmax(64px, 1fr) minmax(62px, 1fr) 72px',
   alignItems: 'center',
   gap: 0.65,
   px: 0.2,
@@ -402,8 +471,9 @@ const tableGridStyle = {
 
 const inputStyle = (isCompleted: boolean, isCurrent: boolean = false) => ({
   minWidth: 0,
+  maxWidth: 110,
   '& .MuiOutlinedInput-root': {
-    height: 36,
+    height: 40,
     borderRadius: '6px',
     bgcolor: isCompleted ? 'rgba(255,255,255,0.78)' : 'background.paper',
     fontSize: '0.86rem',
@@ -423,10 +493,11 @@ const inputStyle = (isCompleted: boolean, isCurrent: boolean = false) => ({
 });
 
 const actionButtonStyle = {
-  minHeight: 30,
+  minHeight: 36,
   px: 1,
   color: 'text.secondary',
   fontSize: '0.68rem',
   fontWeight: 700,
   '&:hover': { color: '#078c66', bgcolor: 'rgba(5,169,120,0.04)', boxShadow: 'none', transform: 'none' },
+  '&.Mui-disabled': { opacity: 0.4 },
 };

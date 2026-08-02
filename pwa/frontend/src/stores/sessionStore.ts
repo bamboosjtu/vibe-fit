@@ -9,6 +9,7 @@ import type {
   RestTimerState,
   CardioRecord,
 } from '../types';
+import { DEFAULT_STRENGTH_REST_SECONDS } from '../types';
 import {
   getAllSessions,
   getSessionById,
@@ -67,13 +68,24 @@ interface SessionState {
   expireRestTimerIfEnded: () => void;
 
   // 动作管理
-  addExercise: (exercise: Exercise, phaseId?: string, groupId?: string) => void;
+  addExercise: (
+    exercise: Exercise,
+    phaseId?: string,
+    groupId?: string,
+    options?: {
+      source?: 'recommended' | 'library';
+      targetSets?: number;
+      targetReps?: number;
+      restSeconds?: number;
+    },
+  ) => void;
   removeExercise: (sessionExerciseId: string) => void;
 
   // 组记录管理
   addSet: (sessionExerciseId: string, setData: Partial<SetRecord>) => void;
   updateSet: (sessionExerciseId: string, setId: string, updates: Partial<SetRecord>) => void;
   toggleSetCompleted: (sessionExerciseId: string, setId: string) => void;
+  deleteSet: (sessionExerciseId: string, setId: string) => void;
 
   // 有氧训练管理
   startCardio: (exercise: Exercise, targetDurationMinutes?: number) => void;
@@ -342,18 +354,20 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   // ── 动作管理 ────────────────────────────────────────────
 
-  addExercise: (exercise, phaseId, groupId) => {
+  addExercise: (exercise, phaseId, groupId, options) => {
     const { activeSession } = get();
     if (!activeSession) return;
 
-    // 有氧动作不创建组记录，力量动作创建默认 3 组
+    // 有氧动作不创建组记录，力量动作创建默认或继承计划的组数/次数
     const isCardio = exercise.type === 'cardio';
-    const sets: SetRecord[] = isCardio ? [] : Array.from({ length: 3 }, (_, i) => ({
+    const numSets = options?.targetSets ?? 3;
+    const targetReps = options?.targetReps ?? 12;
+    const sets: SetRecord[] = isCardio ? [] : Array.from({ length: numSets }, (_, i) => ({
       id: generateId(),
       exerciseId: exercise.id,
       setNumber: i + 1,
-      reps: 12,
-      weight: 0,
+      reps: targetReps,
+      // 空重量保持为空（undefined），不自动显示 0
       completedAt: '',
     }));
 
@@ -366,8 +380,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       order: activeSession.exercises.length,
       phaseId: phaseId || 'extra',
       groupId: groupId || 'extra',
+      // 力量训练：组间休息时间，优先使用计划配置，回退到默认常量
+      restSeconds: isCardio ? undefined : (options?.restSeconds ?? DEFAULT_STRENGTH_REST_SECONDS),
       // 有氧动作初始为 idle 状态
       cardioRecord: isCardio ? { status: 'idle', elapsedSeconds: 0 } : undefined,
+      // 动作来源
+      source: options?.source,
     };
 
     set((state) => ({
@@ -464,6 +482,29 @@ export const useSessionStore = create<SessionState>((set, get) => ({
                 sets: e.sets.map((s) =>
                   s.id === setId ? { ...s, completedAt: s.completedAt ? '' : getCurrentISOString() } : s
                 ),
+              }
+            : e
+        ),
+      } : null,
+    }));
+    get()._persistPending();
+  },
+
+  deleteSet: (sessionExerciseId, setId) => {
+    const { activeSession } = get();
+    if (!activeSession) return;
+
+    set((state) => ({
+      activeSession: state.activeSession ? {
+        ...state.activeSession,
+        exercises: state.activeSession.exercises.map((e) =>
+          e.id === sessionExerciseId
+            ? {
+                ...e,
+                // 删除组后重新编号
+                sets: e.sets
+                  .filter((s) => s.id !== setId)
+                  .map((s, i) => ({ ...s, setNumber: i + 1 })),
               }
             : e
         ),

@@ -11,6 +11,7 @@ import {
   DialogActions,
   Button,
   Divider,
+  Chip,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -32,10 +33,10 @@ interface GroupedSessions {
 }
 
 export function HistoryPage() {
-  const { sessions, initialize, loadSessions, deleteSession, updateSessionNotes } = useSessionStore();
+  const { sessions, loadSessions, deleteSession, updateSessionNotes } = useSessionStore();
   const { weightUnit } = useSettingsStore();
 
-  const [initialized, setInitialized] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSession, setSelectedSession] = useState<TrainingSession | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
@@ -43,27 +44,21 @@ export function HistoryPage() {
   const [editingNotes, setEditingNotes] = useState('');
   const [isEditingNotes, setIsEditingNotes] = useState(false);
 
-  // 初始加载
+  // 进入页面调用 loadSessions() 一次
+  // endSession 完成后 store 已主动调用 loadSessions，无需轮询或重复 initialize
   useEffect(() => {
-    initialize().then(() => setInitialized(true));
-  }, [initialize]);
-
-  // 页面获得焦点时重新加载（从训练页返回时），不再使用 2 秒轮询
-  // endSession 完成后 store 已主动调用 loadSessions，此处仅处理页面切换场景
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        loadSessions();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    loadSessions().finally(() => setLoading(false));
   }, [loadSessions]);
+
+  // 已结束的训练记录（仅显示有 endedAt 的会话，排除 activeSession）
+  const endedSessions = useMemo(
+    () => sessions.filter(session => session.endedAt),
+    [sessions],
+  );
 
   // 按日期分组训练记录
   const groupedSessions = useMemo(() => {
-    const filtered = sessions.filter(session => {
+    const filtered = endedSessions.filter(session => {
       if (!searchQuery) return true;
       const query = searchQuery.toLowerCase();
       return (
@@ -83,7 +78,7 @@ export function HistoryPage() {
     });
 
     return grouped;
-  }, [sessions, searchQuery]);
+  }, [endedSessions, searchQuery]);
 
   // 获取分组标题
   const getGroupTitle = (dateKey: string): string => {
@@ -113,7 +108,7 @@ export function HistoryPage() {
     };
   };
 
-  if (!initialized) {
+  if (loading) {
     return <LoadingState />;
   }
 
@@ -146,6 +141,7 @@ export function HistoryPage() {
   };
 
   // 判断训练类型：strength / cardio / mixed
+  // 同时包含 strength 和 cardio 为 mixed；仅 cardio 为 cardio；仅 strength 为 strength
   const getSessionType = (session: TrainingSession): SessionType => {
     const hasStrength = session.exercises.some(e => e.type === 'strength');
     const hasCardio = session.exercises.some(e => e.type === 'cardio');
@@ -154,17 +150,34 @@ export function HistoryPage() {
     return 'strength';
   };
 
-  // 获取有氧训练数据（从 cardioRecord 读取，而非 sets）
+  // 训练类型标签文字
+  const getSessionTypeLabel = (sessionType: SessionType): string => {
+    switch (sessionType) {
+      case 'cardio':
+        return '有氧';
+      case 'mixed':
+        return '混合';
+      default:
+        return '力量';
+    }
+  };
+
+  // 获取有氧训练数据（从 cardioRecord.elapsedSeconds 读取，不从空 sets 统计）
   const getCardioStats = (session: TrainingSession) => {
     let totalDurationSeconds = 0;
     let totalDistance = 0;
     let cardioCount = 0;
 
     session.exercises.forEach(exercise => {
-      if (exercise.type === 'cardio' && exercise.cardioRecord?.status === 'completed') {
+      if (exercise.type === 'cardio') {
         cardioCount++;
-        totalDurationSeconds += exercise.cardioRecord.elapsedSeconds ?? 0;
-        totalDistance += exercise.cardioRecord.distance ?? 0;
+        const record = exercise.cardioRecord;
+        if (record) {
+          totalDurationSeconds += record.elapsedSeconds ?? 0;
+          if (record.distance != null) {
+            totalDistance += record.distance;
+          }
+        }
       }
     });
 
@@ -189,28 +202,35 @@ export function HistoryPage() {
     const sessionType = getSessionType(session);
     const cardioStats = getCardioStats(session);
     const strengthStats = getStrengthStats(session);
+    const totalMinutes = calculateSessionDuration(session.startedAt, session.endedAt);
 
-    // 构建副标题摘要
+    // 构建副标题摘要：力量摘要 + 有氧摘要 + 总训练时长
     const buildSummary = (): string => {
       const parts: string[] = [];
       if (sessionType === 'cardio') {
-        if (cardioStats.count > 0) {
+        parts.push(`${cardioStats.count}个动作`);
+        if (cardioStats.durationSeconds > 0) {
           parts.push(formatTimer(cardioStats.durationSeconds));
-          if (cardioStats.distance > 0) {
-            parts.push(`${cardioStats.distance.toFixed(1)}公里`);
+        }
+        if (cardioStats.distance > 0) {
+          parts.push(`${cardioStats.distance.toFixed(1)}公里`);
+        }
+      } else if (sessionType === 'mixed') {
+        parts.push(`力量 ${strengthStats.exerciseCount}动作/${strengthStats.totalSets}组`);
+        if (cardioStats.count > 0) {
+          const cardioParts: string[] = [`${cardioStats.count}动作`];
+          if (cardioStats.durationSeconds > 0) {
+            cardioParts.push(formatTimer(cardioStats.durationSeconds));
           }
+          parts.push(`有氧 ${cardioParts.join(' ')}`);
         }
-        return parts.length > 0 ? parts.join(' · ') : `${cardioStats.count}个有氧动作`;
+      } else {
+        // strength
+        parts.push(`${strengthStats.exerciseCount}个动作`);
+        parts.push(`${strengthStats.totalSets}组`);
       }
-      if (sessionType === 'mixed') {
-        parts.push(`${strengthStats.exerciseCount}动作/${strengthStats.totalSets}组`);
-        if (cardioStats.count > 0) {
-          parts.push(formatTimer(cardioStats.durationSeconds));
-        }
-        return parts.join(' · ');
-      }
-      // strength
-      return `${strengthStats.exerciseCount}个动作 · ${strengthStats.totalSets}组`;
+      parts.push(`总时长${totalMinutes}分钟`);
+      return parts.join(' · ');
     };
 
     // 图标和背景色
@@ -220,21 +240,25 @@ export function HistoryPage() {
           return {
             icon: <CardioIcon sx={{ color: 'warning.main', fontSize: 18 }} />,
             bg: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(239, 68, 68, 0.15) 100%)',
+            color: 'warning.main' as const,
           };
         case 'mixed':
           return {
             icon: <MixedIcon sx={{ color: 'secondary.main', fontSize: 18 }} />,
             bg: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(245, 158, 11, 0.15) 100%)',
+            color: 'secondary.main' as const,
           };
         default:
           return {
             icon: <StrengthIcon sx={{ color: 'primary.main', fontSize: 18 }} />,
             bg: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(6, 182, 212, 0.15) 100%)',
+            color: 'primary.main' as const,
           };
       }
     };
 
     const iconConfig = getIconConfig();
+    const typeLabel = getSessionTypeLabel(sessionType);
 
     return (
       <Box
@@ -254,8 +278,8 @@ export function HistoryPage() {
         onClick={() => handleViewDetail(session)}
       >
         {/* 训练内容 */}
-        <Box sx={{ flex: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
             <Box
               sx={{
                 width: 32,
@@ -265,6 +289,7 @@ export function HistoryPage() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                flexShrink: 0,
               }}
             >
               {iconConfig.icon}
@@ -276,6 +301,26 @@ export function HistoryPage() {
             >
               {session.dayName || '自由训练'}
             </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ fontFamily: '"Nunito", sans-serif' }}
+            >
+              {formatTime(session.startedAt)}
+            </Typography>
+            <Chip
+              label={typeLabel}
+              size="small"
+              sx={{
+                height: 20,
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                color: iconConfig.color,
+                background: iconConfig.bg,
+                border: 'none',
+                '.MuiChip-label': { px: 0.75 },
+              }}
+            />
           </Box>
           <Typography
             variant="caption"
@@ -487,7 +532,7 @@ export function HistoryPage() {
       {/* 底部统计 */}
       <Box sx={{ textAlign: 'center', py: 3 }}>
         <Typography variant="caption" color="text.disabled">
-          {sessions.length > 0 ? `已加载全部 · 累计 ${sessions.length} 次训练` : '暂无训练记录'}
+          {endedSessions.length > 0 ? `已加载全部 · 累计 ${endedSessions.length} 次训练` : '暂无训练记录'}
         </Typography>
       </Box>
 
@@ -500,8 +545,17 @@ export function HistoryPage() {
       >
         {selectedSession && (
           <>
-            <DialogTitle>
+            <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               {selectedSession.dayName || '自由训练'}
+              <Chip
+                label={getSessionTypeLabel(getSessionType(selectedSession))}
+                size="small"
+                sx={{
+                  height: 20,
+                  fontSize: '0.7rem',
+                  fontWeight: 600,
+                }}
+              />
             </DialogTitle>
             <DialogContent>
               <Typography variant="body2" color="text.secondary" gutterBottom>

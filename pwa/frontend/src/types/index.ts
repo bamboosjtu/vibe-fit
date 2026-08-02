@@ -70,6 +70,8 @@ export const SessionExerciseSchema = z.object({
   restSeconds: z.number().optional(),
   // 有氧训练：单次有氧记录
   cardioRecord: CardioRecordSchema.optional(),
+  // 动作来源：recommended（来自当前组推荐列表）/ library（来自全局搜索）
+  source: z.enum(['recommended', 'library']).optional(),
 });
 export type SessionExercise = z.infer<typeof SessionExerciseSchema>;
 
