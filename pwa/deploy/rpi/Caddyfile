@@ -1,0 +1,35 @@
+{
+    admin off
+    auto_https disable_redirects
+}
+
+http://{$VIBEFIT_HOST} {
+    redir https://{$VIBEFIT_HOST}{uri} permanent
+}
+
+https://{$VIBEFIT_HOST} {
+    tls /run/secrets/tls_cert /run/secrets/tls_key
+    encode zstd gzip
+
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    @api path /api/* /health /healthz /readyz
+    handle @api {
+        reverse_proxy backend:8080
+    }
+
+    handle {
+        reverse_proxy frontend:80
+    }
+
+    log {
+        output stdout
+        format json
+    }
+}

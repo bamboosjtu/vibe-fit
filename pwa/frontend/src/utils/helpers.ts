@@ -144,10 +144,11 @@ export function readJSONFile(file: File): Promise<unknown> {
 }
 
 /**
- * 验证导出数据结构：使用 zod schema 进行深度校验。
+ * 解析导出数据：使用 zod schema 进行深度校验并应用默认值。
  * 确保导入的备份文件包含完整的 schemaVersion/exportedAt/appVersion
  * 以及合法的 settings/plans/sessions/exercises 数据。
  */
-export function validateExportData(data: unknown): data is ExportData {
-  return ExportDataSchema.safeParse(data).success;
+export function parseExportData(data: unknown): ExportData | null {
+  const result = ExportDataSchema.safeParse(data);
+  return result.success ? result.data : null;
 }

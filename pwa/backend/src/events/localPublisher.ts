@@ -30,6 +30,7 @@ export class LocalHttpEventPublisher implements EventPublisher {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(5_000),
     });
 
     if (!response.ok) {

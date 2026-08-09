@@ -1,5 +1,12 @@
 # ─── base ───────────────────────────────────────────────────────────
-FROM node:20-alpine AS base
+ARG NODE_IMAGE=node:24.19.0-alpine3.23@sha256:244cc2b53f46f9e876304391d17682b0ddae9ac33491f4857e25e35a36ba7995
+FROM ${NODE_IMAGE} AS base
+ARG APP_VERSION=1.1.0
+ARG GIT_REVISION=unknown
+ENV APP_VERSION=$APP_VERSION
+ENV GIT_REVISION=$GIT_REVISION
+LABEL org.opencontainers.image.version=$APP_VERSION \
+      org.opencontainers.image.revision=$GIT_REVISION
 WORKDIR /app
 
 # ─── dependencies ──────────────────────────────────────────────────
@@ -58,13 +65,12 @@ USER node
 ENTRYPOINT ["./docker-entrypoint.sh"]
 
 # ─── worker-runtime ────────────────────────────────────────────────
-# Worker 运行镜像：仅编译后的 worker.js + config + 生产依赖
-# Worker 使用 mock 数据模式，不连接数据库，不需要 Prisma Client
+# Worker 运行镜像：消费 backup.created，并通过 Prisma 执行快照保留策略。
 FROM base AS worker-runtime
 ENV NODE_ENV=production
 COPY --from=production-dependencies /app/node_modules ./node_modules
-COPY --from=builder /app/dist/worker.js ./dist/worker.js
-COPY --from=builder /app/dist/config ./dist/config
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/dist ./dist
 COPY package.json ./
 USER node
 CMD ["node", "dist/worker.js"]

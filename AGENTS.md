@@ -19,7 +19,7 @@ VibeFit 是一个健身应用，同一仓库产出两个构建目标：
 
 ## 测试规范
 
-前端测试使用 Vitest、Testing Library、`jsdom`，setup 在 `pwa/frontend/src/__tests__/setup.ts`。测试放在 `pwa/frontend/tests/`，使用 `*.test.ts` 或 `*.test.tsx`，与当前 Vitest include 模式一致。后端暂未配置测试；改动后端行为前先运行 `npm run typecheck` 与 `npm run build`。
+前端测试使用 Vitest 与 Testing Library。纯 TypeScript 测试默认使用 Node 环境，需要 DOM 的 `*.test.tsx` 在文件头显式声明 `@vitest-environment jsdom`。测试放在 `pwa/frontend/tests/`，使用 `*.test.ts` 或 `*.test.tsx`，与当前 Vitest include 模式一致。后端暂未配置测试；改动后端行为前先运行 `npm run typecheck` 与 `npm run build`。
 
 ## 提交与 Pull Request 规范
 

@@ -394,3 +394,18 @@ describe('_persistPending 串行写入', () => {
     expect(lastCall.timerStatus).toBe('running');
   });
 });
+
+describe('resetRuntimeState', () => {
+  it('备份替换数据后清理活动会话和休息计时', () => {
+    const store = useSessionStore.getState();
+    store.startSession();
+    store.startRestTimer(60, 'exercise-1');
+
+    useSessionStore.getState().resetRuntimeState();
+
+    const state = useSessionStore.getState();
+    expect(state.activeSession).toBeNull();
+    expect(state.staleSession).toBeNull();
+    expect(state.restTimer).toEqual(IDLE_REST_TIMER);
+  });
+});

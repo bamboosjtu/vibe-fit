@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import { resolve } from "path";
 import { fileURLToPath } from "url";
+import { readFileSync } from "fs";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 dotenv.config({ path: resolve(__dirname, "../../.env") });
@@ -18,8 +19,27 @@ type DataMode = "mock" | "postgres";
 //   - mock ：仅日志输出，仅用于测试
 type EventPublisherMode = "mock" | "local";
 
+function readEnvValue(key: string): string | undefined {
+  const directValue = process.env[key];
+  const filePath = process.env[`${key}_FILE`];
+
+  if (directValue !== undefined && filePath) {
+    throw new Error(`Ambiguous environment variable: set only ${key} or ${key}_FILE`);
+  }
+
+  if (!filePath) return directValue;
+
+  try {
+    return readFileSync(filePath, "utf8").replace(/[\r\n]+$/, "");
+  } catch (error) {
+    throw new Error(
+      `Cannot read ${key}_FILE (${filePath}): ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
 function getEnv(key: string, defaultValue?: string): string {
-  const value = process.env[key] ?? defaultValue;
+  const value = readEnvValue(key) ?? defaultValue;
 
   if (value === undefined || value === "") {
     throw new Error(`Missing required environment variable: ${key}`);
@@ -29,7 +49,15 @@ function getEnv(key: string, defaultValue?: string): string {
 }
 
 function getOptionalEnv(key: string, defaultValue = ""): string {
-  return process.env[key] ?? defaultValue;
+  return readEnvValue(key) ?? defaultValue;
+}
+
+function getPositiveInteger(key: string, defaultValue: string): number {
+  const value = Number.parseInt(getOptionalEnv(key, defaultValue), 10);
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`Invalid ${key}: must be a positive integer`);
+  }
+  return value;
 }
 
 function getMode<T extends string>(
@@ -94,6 +122,27 @@ const VERIFY_CODE_LENGTH = Number.parseInt(
   10,
 );
 
+const MAX_BACKUP_BYTES = getPositiveInteger(
+  "MAX_BACKUP_BYTES",
+  String(10 * 1024 * 1024),
+);
+const BACKUP_RETENTION_DAYS = getPositiveInteger("BACKUP_RETENTION_DAYS", "90");
+const BACKUP_MIN_SNAPSHOTS = getPositiveInteger("BACKUP_MIN_SNAPSHOTS", "10");
+
+const JWT_SECRET = isProduction
+  ? getEnv("JWT_SECRET")
+  : getEnv("JWT_SECRET", "dev-only-secret");
+
+if (
+  isProduction
+  && (
+    JWT_SECRET.length < 32
+    || /dev[-_ ]?only[-_ ]?secret|replace[-_ ]?with|change.?me/i.test(JWT_SECRET)
+  )
+) {
+  throw new Error("Invalid JWT_SECRET: production secret must contain at least 32 characters");
+}
+
 export const env = {
   PORT,
   NODE_ENV,
@@ -122,9 +171,14 @@ export const env = {
   VERIFY_CODE_TTL_SECONDS,
   VERIFY_CODE_LENGTH,
 
-  JWT_SECRET: isProduction
-    ? getEnv("JWT_SECRET")
-    : getEnv("JWT_SECRET", "dev-only-secret"),
+  JWT_SECRET,
+
+  APP_VERSION: getOptionalEnv("APP_VERSION", "1.1.0"),
+  GIT_REVISION: getOptionalEnv("GIT_REVISION", "unknown"),
+  DATABASE_SCHEMA_VERSION: getOptionalEnv("DATABASE_SCHEMA_VERSION", "1"),
+  MAX_BACKUP_BYTES,
+  BACKUP_RETENTION_DAYS,
+  BACKUP_MIN_SNAPSHOTS,
 
   isDev(): boolean {
     return this.NODE_ENV === "development";

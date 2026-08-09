@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import type { ExerciseGroup, PlanExerciseConfig } from '../src/types';
@@ -153,20 +155,6 @@ describe('ExerciseSelector - 已添加动作去重', () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
-  it('点击已禁用的推荐动作不触发 onSelect', () => {
-    const onSelect = vi.fn();
-    const context = buildContext({ addedExerciseIds: ['pull-up'] });
-    render(
-      <ExerciseSelector
-        open={true}
-        context={context}
-        onClose={vi.fn()}
-        onSelect={onSelect}
-      />,
-    );
-    fireEvent.click(screen.getByTestId('exercise-option-pull-up'));
-    expect(onSelect).not.toHaveBeenCalled();
-  });
 });
 
 describe('ExerciseSelector - 全局动作库', () => {

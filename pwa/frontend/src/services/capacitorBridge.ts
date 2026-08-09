@@ -20,6 +20,14 @@ export class CapacitorBridge implements NativeBridge {
   private static readonly REST_TIMER_NOTIF_ID = 1001;
 
   async scheduleRestTimerNotification(seconds: number): Promise<void> {
+    const currentPermission = await LocalNotifications.checkPermissions();
+    const permission = currentPermission.display === 'granted'
+      ? currentPermission
+      : await LocalNotifications.requestPermissions();
+
+    // 用户拒绝通知权限时保留前台计时功能，不让原生调用失败中断流程。
+    if (permission.display !== 'granted') return;
+
     // 先取消已有的休息通知，再重新调度
     await LocalNotifications.cancel({
       notifications: [{ id: CapacitorBridge.REST_TIMER_NOTIF_ID }],

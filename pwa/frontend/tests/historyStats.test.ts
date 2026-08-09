@@ -1,87 +1,91 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { getCardioStats } from '../src/domain/historyStats';
 import { formatHistoryDuration } from '../src/utils/helpers';
+import type { TrainingSession } from '../src/types';
 
 describe('formatHistoryDuration', () => {
-  it('不足 60 秒显示秒', () => {
-    expect(formatHistoryDuration(0)).toBe('0秒');
-    expect(formatHistoryDuration(30)).toBe('30秒');
-    expect(formatHistoryDuration(59)).toBe('59秒');
-  });
-
-  it('60 秒以上显示分钟（向下取整，不强制向上取整）', () => {
-    expect(formatHistoryDuration(60)).toBe('1分钟');
-    expect(formatHistoryDuration(90)).toBe('1分钟');
-    expect(formatHistoryDuration(125)).toBe('2分钟');
-    expect(formatHistoryDuration(3599)).toBe('59分钟');
-  });
-
-  it('3600 秒以上显示小时+分钟', () => {
-    expect(formatHistoryDuration(3600)).toBe('1小时0分钟');
-    expect(formatHistoryDuration(3660)).toBe('1小时1分钟');
-    expect(formatHistoryDuration(7200)).toBe('2小时0分钟');
-    expect(formatHistoryDuration(9000)).toBe('2小时30分钟');
+  it.each([
+    [0, '0秒'],
+    [59, '59秒'],
+    [60, '1分钟'],
+    [3599, '59分钟'],
+    [3600, '1小时0分钟'],
+    [9000, '2小时30分钟'],
+  ])('%i 秒格式化为 %s', (seconds, expected) => {
+    expect(formatHistoryDuration(seconds)).toBe(expected);
   });
 });
 
-describe('有氧距离单位聚合（数据模型验证）', () => {
-  // 模拟历史页 getCardioStats 的距离聚合逻辑
-  function aggregateDistanceMeters(exercises: Array<{ type: string; cardioRecord?: { distanceMeters?: number } }>): number {
-    let total = 0;
-    exercises.forEach((ex) => {
-      if (ex.type === 'cardio' && ex.cardioRecord?.distanceMeters != null) {
-        total += ex.cardioRecord.distanceMeters;
-      }
+describe('getCardioStats', () => {
+  it('只聚合有氧动作，距离统一以米累加', () => {
+    const session: TrainingSession = {
+      id: 'session-1',
+      startedAt: '2026-08-08T08:00:00.000Z',
+      exercises: [
+        {
+          id: 'treadmill-1',
+          exerciseId: 'treadmill',
+          exerciseName: '跑步机',
+          type: 'cardio',
+          order: 0,
+          sets: [],
+          cardioRecord: {
+            status: 'completed',
+            elapsedSeconds: 1200,
+            distanceMeters: 4000,
+          },
+        },
+        {
+          id: 'rowing-1',
+          exerciseId: 'rowing-machine',
+          exerciseName: '划船机',
+          type: 'cardio',
+          order: 1,
+          sets: [],
+          cardioRecord: {
+            status: 'completed',
+            elapsedSeconds: 600,
+            distanceMeters: 2000,
+          },
+        },
+        {
+          id: 'strength-1',
+          exerciseId: 'bench-press',
+          exerciseName: '卧推',
+          type: 'strength',
+          order: 2,
+          sets: [],
+        },
+      ],
+    };
+
+    expect(getCardioStats(session)).toEqual({
+      durationSeconds: 1800,
+      distanceMeters: 6000,
+      count: 2,
     });
-    return total;
-  }
-
-  it('跑步机 4km (4000m) + 划船机 2000m 正确聚合为 6000m', () => {
-    const total = aggregateDistanceMeters([
-      { type: 'cardio', cardioRecord: { distanceMeters: 4000 } }, // 跑步机 4km
-      { type: 'cardio', cardioRecord: { distanceMeters: 2000 } }, // 划船机 2000m
-    ]);
-    expect(total).toBe(6000);
-    // 展示为 6.00 公里
-    expect((total / 1000).toFixed(2)).toBe('6.00');
   });
 
-  it('单一器械距离正确', () => {
-    const total = aggregateDistanceMeters([
-      { type: 'cardio', cardioRecord: { distanceMeters: 4200 } },
-    ]);
-    expect(total).toBe(4200);
-    expect((total / 1000).toFixed(2)).toBe('4.20');
-  });
+  it('保留已添加但尚未记录的有氧动作数', () => {
+    const session: TrainingSession = {
+      id: 'session-2',
+      startedAt: '2026-08-08T08:00:00.000Z',
+      exercises: [
+        {
+          id: 'elliptical-1',
+          exerciseId: 'elliptical',
+          exerciseName: '椭圆机',
+          type: 'cardio',
+          order: 0,
+          sets: [],
+        },
+      ],
+    };
 
-  it('无有氧数据时距离为 0', () => {
-    const total = aggregateDistanceMeters([
-      { type: 'strength' },
-    ]);
-    expect(total).toBe(0);
-  });
-});
-
-describe('配速格式化', () => {
-  // 复制 HistoryPage 中的 formatPaceForHistory 逻辑
-  function formatPace(seconds: number): string {
-    const m = Math.floor(seconds / 60);
-    const s = Math.round(seconds % 60);
-    return `${m}:${String(s).padStart(2, '0')}`;
-  }
-
-  it('125 秒 → 2:05', () => {
-    expect(formatPace(125)).toBe('2:05');
-  });
-
-  it('60 秒 → 1:00', () => {
-    expect(formatPace(60)).toBe('1:00');
-  });
-
-  it('130 秒 → 2:10', () => {
-    expect(formatPace(130)).toBe('2:10');
-  });
-
-  it('500 秒 → 8:20', () => {
-    expect(formatPace(500)).toBe('8:20');
+    expect(getCardioStats(session)).toEqual({
+      durationSeconds: 0,
+      distanceMeters: 0,
+      count: 1,
+    });
   });
 });

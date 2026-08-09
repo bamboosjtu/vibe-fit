@@ -1,0 +1,11 @@
+[Unit]
+Description=Collect VibeFit Raspberry Pi soak-test observation
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=@DEPLOY_DIR@
+ExecStart=/usr/bin/python3 @DEPLOY_DIR@/scripts/observe.py
+NoNewPrivileges=true
+PrivateTmp=true

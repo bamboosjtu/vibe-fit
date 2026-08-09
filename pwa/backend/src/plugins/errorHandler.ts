@@ -59,6 +59,14 @@ async function errorHandlerPlugin(fastify: FastifyInstance) {
       });
     }
 
+    if (error.statusCode === 413) {
+      return reply.status(413).send({
+        statusCode: 413,
+        code: 'PAYLOAD_TOO_LARGE',
+        message: '备份数据超过 10MiB 限制',
+      });
+    }
+
     const statusCode = error.statusCode ?? 500;
     return reply.status(statusCode).send({
       statusCode,

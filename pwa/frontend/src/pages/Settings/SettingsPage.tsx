@@ -11,6 +11,7 @@ import {
   DialogActions,
   Alert,
   Divider,
+  TextField,
 } from '@mui/material';
 import {
   Download as DownloadIcon,
@@ -20,26 +21,31 @@ import {
   CloudSync as CloudSyncIcon,
   CloudUpload as CloudUploadIcon,
   CloudDownload as CloudDownloadIcon,
+  Dns as DnsIcon,
   Login as LoginIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useSettingsStore, usePlanStore, useSessionStore, useAuthStore } from '../../stores';
-import { exportAllData, importAllData, clearAllData } from '../../db';
-import { downloadJSON, readJSONFile, validateExportData, getCurrentISOString } from '../../utils/helpers';
+import { exportAllData, importAllData, clearAllData, initDefaultSettings } from '../../db';
+import { downloadJSON, readJSONFile, parseExportData, getCurrentISOString } from '../../utils/helpers';
 import { syncPush, syncPull, getSyncStatus } from '../../services/syncService';
 import { getNativeBridge } from '../../services/nativeBridge';
 import { isNativePlatform } from '../../db/repository';
 import { LoadingState } from '../../components/LoadingState';
 import type { ExportData } from '../../types';
-
-const APP_VERSION = '1.0.4';
-const BUILD_NUMBER = '82';
+import { APP_VERSION, BUILD_NUMBER } from '../../app/version';
+import {
+  getConfiguredServerOrigin,
+  saveServerOrigin,
+  testServerConnection,
+} from '../../services/serverConfig';
 
 export function SettingsPage() {
+  const nativePlatform = isNativePlatform();
   const navigate = useNavigate();
-  const { initialize: initSettings } = useSettingsStore();
-  const { initialize: initPlans } = usePlanStore();
-  const { initialize: initSessions } = useSessionStore();
+  const { initialize: initSettings, loadSettings } = useSettingsStore();
+  const { loadPlans } = usePlanStore();
+  const { loadSessions, flushPendingWrites, resetRuntimeState } = useSessionStore();
   const { user, isAuthenticated, logout } = useAuthStore();
 
   const [initialized, setInitialized] = useState(false);
@@ -54,6 +60,14 @@ export function SettingsPage() {
   const [syncError, setSyncError] = useState('');
   const [syncSuccess, setSyncSuccess] = useState('');
   const [showPullConfirmDialog, setShowPullConfirmDialog] = useState(false);
+  const [serverOrigin, setServerOrigin] = useState(
+    nativePlatform ? getConfiguredServerOrigin() ?? '' : '',
+  );
+  const [serverDraft, setServerDraft] = useState(serverOrigin);
+  const [showServerDialog, setShowServerDialog] = useState(false);
+  const [serverLoading, setServerLoading] = useState(false);
+  const [serverMessage, setServerMessage] = useState('');
+  const [serverError, setServerError] = useState('');
 
   const fetchSyncStatus = useCallback(async () => {
     if (isAuthenticated()) {
@@ -113,12 +127,10 @@ export function SettingsPage() {
 
     try {
       const data = await readJSONFile(file);
+      const parsed = parseExportData(data);
+      if (!parsed) return;
 
-      if (!validateExportData(data)) {
-        return;
-      }
-
-      setImportData(data as ExportData);
+      setImportData(parsed);
       setShowImportConfirmDialog(true);
     } catch {
       // 读取文件失败
@@ -132,15 +144,17 @@ export function SettingsPage() {
     if (!importData) return;
 
     try {
+      await flushPendingWrites();
       await importAllData({
         settings: importData.settings,
         plans: importData.plans,
         sessions: importData.sessions,
         exercises: importData.exercises,
       });
+      resetRuntimeState();
 
       // 重新加载所有数据
-      await Promise.all([initSettings(), initPlans(), initSessions()]);
+      await Promise.all([loadSettings(), loadPlans(), loadSessions()]);
 
       setShowImportConfirmDialog(false);
       setShowImportDialog(false);
@@ -152,9 +166,11 @@ export function SettingsPage() {
 
   const handleClearData = async () => {
     try {
+      await flushPendingWrites();
       await clearAllData();
-      // 重新初始化默认设置
-      await Promise.all([initSettings(), initPlans(), initSessions()]);
+      resetRuntimeState();
+      await initDefaultSettings();
+      await Promise.all([loadSettings(), loadPlans(), loadSessions()]);
       setShowClearDialog(false);
     } catch {
       // 清除失败
@@ -183,8 +199,10 @@ export function SettingsPage() {
     setSyncError('');
     setSyncSuccess('');
     try {
+      await flushPendingWrites();
       const response = await syncPull();
-      await Promise.all([initSettings(), initPlans(), initSessions()]);
+      resetRuntimeState();
+      await Promise.all([loadSettings(), loadPlans(), loadSessions()]);
       setLastSyncedAt(response.syncedAt);
       setSyncSuccess('数据已从云端成功恢复');
     } catch (err) {
@@ -192,6 +210,30 @@ export function SettingsPage() {
     } finally {
       setSyncLoading(false);
       setShowPullConfirmDialog(false);
+    }
+  };
+
+  const handleSaveServer = async () => {
+    setServerLoading(true);
+    setServerError('');
+    setServerMessage('');
+
+    try {
+      const connection = await testServerConnection(serverDraft);
+      const result = await saveServerOrigin(connection.origin);
+      setServerOrigin(result.origin);
+      setServerDraft(result.origin);
+      setLastSyncedAt(null);
+      setSyncError('');
+      setSyncSuccess('');
+      setServerMessage(
+        `连接成功${connection.version ? `，版本 ${connection.version}` : ''}，延迟 ${connection.latencyMs}ms${result.changed ? '；服务器已切换，请重新登录' : ''}`,
+      );
+      setShowServerDialog(false);
+    } catch (err) {
+      setServerError(err instanceof Error ? err.message : '服务器连接失败');
+    } finally {
+      setServerLoading(false);
     }
   };
 
@@ -240,6 +282,53 @@ export function SettingsPage() {
           pb: 2,
         }}
       >
+        {nativePlatform && (
+          <Box sx={{ mb: 3 }}>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ mb: 1.5, fontWeight: 'medium', fontFamily: '"Nunito", sans-serif' }}
+            >
+              家庭服务器
+            </Typography>
+            <Card
+              sx={{
+                borderRadius: '12px',
+                boxShadow: '0 12px 30px rgba(15, 23, 42, 0.06)',
+                border: '1px solid',
+                borderColor: 'divider',
+              }}
+            >
+              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                  <DnsIcon color="primary" />
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography variant="body2" fontWeight="bold">
+                      {serverOrigin || '尚未配置'}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      仅允许受信任的 HTTPS 连接
+                    </Typography>
+                  </Box>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => {
+                      setServerDraft(serverOrigin);
+                      setServerError('');
+                      setShowServerDialog(true);
+                    }}
+                    sx={{ textTransform: 'none', flexShrink: 0 }}
+                  >
+                    {serverOrigin ? '修改' : '配置'}
+                  </Button>
+                </Box>
+                {serverMessage && <Alert severity="success" sx={{ mt: 2, py: 0 }}>{serverMessage}</Alert>}
+              </CardContent>
+            </Card>
+          </Box>
+        )}
+
         {/* 账户与同步 */}
         <Box sx={{ mb: 3 }}>
           <Typography
@@ -488,6 +577,31 @@ export function SettingsPage() {
       </Box>
 
       {/* 导入对话框 */}
+      <Dialog open={showServerDialog} onClose={() => !serverLoading && setShowServerDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>家庭服务器</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            label="服务器 HTTPS 地址"
+            placeholder="https://vibefit.home.example"
+            value={serverDraft}
+            onChange={(event) => setServerDraft(event.target.value)}
+            margin="normal"
+            autoCapitalize="none"
+            autoCorrect="off"
+            helperText="修改服务器会退出当前远端账户，但不会删除本地训练数据"
+          />
+          {serverError && <Alert severity="error" sx={{ mt: 2 }}>{serverError}</Alert>}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowServerDialog(false)} disabled={serverLoading}>取消</Button>
+          <Button onClick={handleSaveServer} variant="contained" disabled={serverLoading || !serverDraft.trim()}>
+            {serverLoading ? '正在测试...' : '测试并保存'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog open={showImportDialog} onClose={() => setShowImportDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>导入数据</DialogTitle>
         <DialogContent>

@@ -5,20 +5,25 @@
 #   ./scripts/acceptance.sh
 #
 # 检查项：
-#   1. 容器状态（5 个容器全部运行）
+#   1. 长期服务状态（5 个容器运行）与一次性迁移成功
 #   2. 后端健康检查
 #   3. 后端版本信息
 #   4. 前端 HTTP 200
 #   5. Caddy HTTPS 网关
 #   6. 同源 API 访问（通过前端 nginx 代理）
 #   7. Worker 运行状态
-#   8. 镜像隔离验证（worker 不含 prisma）
+#   8. 运行镜像验证（backend/worker 含 Prisma Client 且不含 Prisma CLI）
 
 set -e
 
 PASS=0
 FAIL=0
 SKIP=0
+CADDY_CA_FILE=$(mktemp)
+cleanup() {
+  rm -f "$CADDY_CA_FILE"
+}
+trap cleanup EXIT HUP INT TERM
 
 ok()   { echo "  [PASS] $1"; PASS=$((PASS + 1)); }
 fail() { echo "  [FAIL] $1"; FAIL=$((FAIL + 1)); }
@@ -37,6 +42,12 @@ for svc in vibefit-postgres vibefit-backend vibefit-worker vibefit-frontend vibe
     fail "$svc: $status"
   fi
 done
+migrate_status=$(docker inspect -f '{{.State.Status}}:{{.State.ExitCode}}' vibefit-migrate 2>/dev/null || echo "missing")
+if [ "$migrate_status" = "exited:0" ]; then
+  ok "vibefit-migrate: completed successfully"
+else
+  fail "vibefit-migrate: $migrate_status"
+fi
 echo ""
 
 # ── 2. 后端健康检查 ─────────────────────────────────────
@@ -71,7 +82,10 @@ echo ""
 
 # ── 5. Caddy HTTPS 网关 ─────────────────────────────────
 echo "5. Caddy HTTPS 网关"
-caddy_code=$(curl -sk -o /dev/null -w "%{http_code}" https://localhost/ 2>/dev/null || echo "000")
+if ! docker cp vibefit-caddy:/data/caddy/pki/authorities/local/root.crt "$CADDY_CA_FILE" >/dev/null 2>&1; then
+  fail "无法读取 Caddy 本地根 CA；不会使用 curl -k 绕过证书验证"
+fi
+caddy_code=$(curl --cacert "$CADDY_CA_FILE" --noproxy localhost -sf -o /dev/null -w "%{http_code}" https://localhost/ 2>/dev/null || echo "000")
 if [ "$caddy_code" = "200" ]; then
   ok "GET https://localhost/ → 200"
 else
@@ -79,7 +93,7 @@ else
 fi
 
 # Caddy → backend 路由
-caddy_health=$(curl -sk https://localhost/health 2>/dev/null || echo "")
+caddy_health=$(curl --cacert "$CADDY_CA_FILE" --noproxy localhost -sf https://localhost/health 2>/dev/null || echo "")
 if echo "$caddy_health" | grep -q '"status":"ok"'; then
   ok "GET https://localhost/health → ok (Caddy → backend 路由正常)"
 else
@@ -116,12 +130,12 @@ echo ""
 
 # ── 8. 镜像隔离验证 ─────────────────────────────────────
 echo "8. 镜像隔离验证"
-# Worker 镜像不应包含 Prisma Client
+# Worker 需要 Prisma Client 执行快照保留策略
 worker_prisma=$(docker exec vibefit-worker sh -c "ls node_modules/.prisma 2>/dev/null" || echo "")
-if [ -z "$worker_prisma" ]; then
-  ok "Worker 镜像不含 Prisma Client"
+if [ -n "$worker_prisma" ]; then
+  ok "Worker 镜像包含 Prisma Client（快照清理可用）"
 else
-  fail "Worker 镜像含 Prisma Client（应隔离）"
+  fail "Worker 镜像不含 Prisma Client"
 fi
 
 # Backend 镜像应包含 Prisma Client
@@ -149,24 +163,24 @@ else
 fi
 echo ""
 
-# ── 9. Backend entrypoint 迁移日志 ─────────────────────
-echo "9. Backend 数据库迁移"
-backend_logs=$(docker logs vibefit-backend 2>&1 || echo "")
-if echo "$backend_logs" | grep -q "already applied\|applied successfully\|Migration"; then
-  ok "迁移脚本已执行"
+# ── 9. 独立迁移服务日志 ────────────────────────────────
+echo "9. 独立数据库迁移"
+migrate_logs=$(docker logs vibefit-migrate 2>&1 || echo "")
+if echo "$migrate_logs" | grep -q "already applied\|applied successfully\|All database migrations completed"; then
+  ok "独立 migrate 服务已执行"
 else
-  fail "迁移日志未找到"
+  fail "migrate 日志未找到: $migrate_logs"
 fi
 
 # Caddy 路由完整性：/healthz /readyz
-healthz_code=$(curl -sk -o /dev/null -w "%{http_code}" https://localhost/healthz 2>/dev/null || echo "000")
+healthz_code=$(curl --cacert "$CADDY_CA_FILE" --noproxy localhost -sf -o /dev/null -w "%{http_code}" https://localhost/healthz 2>/dev/null || echo "000")
 if [ "$healthz_code" = "200" ]; then
   ok "GET https://localhost/healthz → 200"
 else
   fail "GET https://localhost/healthz → $healthz_code"
 fi
 
-readyz_code=$(curl -sk -o /dev/null -w "%{http_code}" https://localhost/readyz 2>/dev/null || echo "000")
+readyz_code=$(curl --cacert "$CADDY_CA_FILE" --noproxy localhost -sf -o /dev/null -w "%{http_code}" https://localhost/readyz 2>/dev/null || echo "000")
 if [ "$readyz_code" = "200" ]; then
   ok "GET https://localhost/readyz → 200"
 else

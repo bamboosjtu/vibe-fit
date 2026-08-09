@@ -145,27 +145,32 @@ export class DexieRepository implements DataRepository {
   }
 
   async importAllData(data: ImportPayload): Promise<void> {
-    await db.transaction('rw', db.exercises, db.plans, db.sessions, db.settings, async () => {
-      await Promise.all([
-        db.exercises.clear(),
-        db.plans.clear(),
-        db.sessions.clear(),
-        db.settings.clear(),
-      ]);
+    await db.transaction(
+      'rw',
+      [db.exercises, db.plans, db.sessions, db.settings, db.pendingTraining],
+      async () => {
+        await Promise.all([
+          db.exercises.clear(),
+          db.plans.clear(),
+          db.sessions.clear(),
+          db.settings.clear(),
+          db.pendingTraining.clear(),
+        ]);
 
-      if (data.settings) {
-        await db.settings.add(data.settings);
-      }
-      if (data.plans?.length) {
-        await db.plans.bulkAdd(data.plans);
-      }
-      if (data.sessions?.length) {
-        await db.sessions.bulkAdd(data.sessions);
-      }
-      if (data.exercises?.length) {
-        await db.exercises.bulkAdd(data.exercises);
-      }
-    });
+        if (data.settings) {
+          await db.settings.add(data.settings);
+        }
+        if (data.plans?.length) {
+          await db.plans.bulkAdd(data.plans);
+        }
+        if (data.sessions?.length) {
+          await db.sessions.bulkAdd(data.sessions);
+        }
+        if (data.exercises?.length) {
+          await db.exercises.bulkAdd(data.exercises);
+        }
+      },
+    );
   }
 
   async clearAllData(): Promise<void> {
@@ -184,5 +189,11 @@ export class DexieRepository implements DataRepository {
         ]);
       },
     );
+  }
+
+  async clearRemoteSyncState(): Promise<void> {
+    await db.transaction('rw', [db.syncQueue, db.syncMeta], async () => {
+      await Promise.all([db.syncQueue.clear(), db.syncMeta.clear()]);
+    });
   }
 }

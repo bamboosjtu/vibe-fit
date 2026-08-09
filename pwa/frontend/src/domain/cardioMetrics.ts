@@ -46,8 +46,9 @@ export const metersToKm = (m: number): number => m / 1000;
 
 /** 配速：存储秒数，展示 MM:SS */
 export function formatPace(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds % 60);
+  const roundedSeconds = Math.round(seconds);
+  const m = Math.floor(roundedSeconds / 60);
+  const s = roundedSeconds % 60;
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 

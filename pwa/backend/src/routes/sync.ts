@@ -3,21 +3,11 @@ import { badRequest, unauthorized } from "../plugins/errorHandler.js";
 import { repositories } from "../repositories/index.js";
 import { eventPublisher } from "../events/index.js";
 import { randomUUID } from "crypto";
-
-interface PushBody {
-  schemaVersion: number;
-  exportedAt: string;
-  appVersion: string;
-  deviceId?: string;
-  settings?: any;
-  plans?: any[];
-  sessions?: any[];
-  exercises?: any[];
-}
+import { BackupPayloadSchema, type BackupPayload } from "../schemas/backup.js";
 
 export default async function syncRoutes(fastify: FastifyInstance) {
   // Endpoints requested by m2 checklist
-  fastify.post<{ Body: PushBody }>(
+  fastify.post<{ Body: BackupPayload }>(
     "/api/backups",
     { preValidation: [fastify.authenticate] },
     async (request, reply) => {
@@ -35,13 +25,13 @@ export default async function syncRoutes(fastify: FastifyInstance) {
 
   async function handlePush(request: any, reply: any) {
     const user = request.user;
-    const body = request.body;
-
-    if (!body.schemaVersion || !body.exportedAt || !body.appVersion) {
-      throw badRequest(
-        "Missing required fields: schemaVersion, exportedAt, appVersion",
-      );
+    const parsed = BackupPayloadSchema.safeParse(request.body);
+    if (!parsed.success) {
+      throw badRequest("备份数据格式无效", parsed.error.flatten());
     }
+    // Validation must not normalize or add defaults: successful push/pull responses
+    // remain byte-for-byte compatible at the JSON value level.
+    const body = request.body as BackupPayload;
 
     const dbUser = await repositories.users.findById(user.id);
 

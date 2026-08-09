@@ -124,6 +124,8 @@ interface SessionState {
    * 用于 pagehide / visibilitychange / 结束训练 / 完成有氧前确保数据落库。
    */
   flushPendingWrites: () => Promise<void>;
+  /** 备份导入或清空数据后，清理不应继续保留的运行时训练状态。 */
+  resetRuntimeState: () => void;
 }
 
 // 串行写入队列，防止旧写入覆盖新状态
@@ -761,6 +763,19 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     await get()._persistPending();
     // 等待 writeQueue 中所有 pending 写入完成
     await writeQueue;
+  },
+
+  resetRuntimeState: () => {
+    if (cardioMetricsPersistTimer) {
+      clearTimeout(cardioMetricsPersistTimer);
+      cardioMetricsPersistTimer = null;
+    }
+    set({
+      activeSession: null,
+      staleSession: null,
+      restTimer: IDLE_REST_TIMER,
+    });
+    fireNative((bridge) => bridge.cancelRestTimerNotification());
   },
 }));
 

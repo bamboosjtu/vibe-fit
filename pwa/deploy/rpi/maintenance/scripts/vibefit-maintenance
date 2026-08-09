@@ -1,0 +1,21 @@
+#!/bin/sh
+set -eu
+
+case "${1:-backup}" in
+  init)
+    exec vibefit-backup-init
+    ;;
+  backup)
+    exec vibefit-backup
+    ;;
+  check)
+    exec vibefit-backup-check
+    ;;
+  restore)
+    exec vibefit-restore
+    ;;
+  *)
+    echo "Usage: vibefit-maintenance [init|backup|check|restore]" >&2
+    exit 64
+    ;;
+esac

@@ -273,6 +273,6 @@ docker compose up -d --build
 
 ## 6. 测试
 
-- 前端单测：Vitest + Testing Library + jsdom，setup 在 `pwa/frontend/src/__tests__/setup.ts`，测试放在 `pwa/frontend/tests/`（`*.test.ts` / `*.test.tsx`）。当前测试目录为空，测试基础设施已就绪待补。
+- 前端单测：Vitest + Testing Library，测试放在 `pwa/frontend/tests/`（`*.test.ts` / `*.test.tsx`）。纯逻辑测试使用 Node 环境，仅 React 组件测试通过文件头的 `@vitest-environment jsdom` 启用 jsdom，避免无关的 DOM 初始化开销。
 - 后端：暂未配置测试，改后端行为前先跑 `npm run typecheck` 与 `npm run build`。
 - 数据校验：导入/导出/同步 payload 全部走 `pwa/frontend/src/types/index.ts` 的 zod schema。

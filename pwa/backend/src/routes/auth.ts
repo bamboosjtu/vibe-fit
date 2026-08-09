@@ -4,6 +4,7 @@ import { badRequest, unauthorized } from "../plugins/errorHandler.js";
 import { env } from "../config/env.js";
 import { repositories } from "../repositories/index.js";
 import { sendVerificationEmail } from "../services/emailService.js";
+import { randomInt } from "crypto";
 
 const SendCodeSchema = z.object({
   email: z.string().email(),
@@ -19,7 +20,7 @@ function generateCode(length: number): string {
   let code = "";
 
   for (let i = 0; i < length; i++) {
-    code += digits[Math.floor(Math.random() * digits.length)];
+    code += digits[randomInt(digits.length)];
   }
 
   return code;

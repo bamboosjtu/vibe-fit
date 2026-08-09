@@ -9,6 +9,7 @@ import {
   setCurrentPlan as dbSetCurrentPlan,
 } from '../db';
 import { createPlanFromTemplate, createEmptyPlan, getCurrentISOString } from '../utils/helpers';
+import { findNextActiveDayIndex } from '../domain/trainingPlan';
 
 interface PlanState {
   plans: TrainingPlan[];
@@ -119,12 +120,10 @@ export const usePlanStore = create<PlanState>((set, get) => ({
     const plan = get().plans.find(p => p.id === planId);
     if (!plan || plan.days.length === 0) return;
 
-    const activeDays = plan.days.filter(d => d.isActive);
-    if (activeDays.length === 0) return;
-
     const currentIdx = plan.currentDayIndex ?? 0;
-    const nextIdx = (currentIdx + 1) % plan.days.length;
-    
+    const nextIdx = findNextActiveDayIndex(plan.days, currentIdx);
+    if (nextIdx === null) return;
+
     await get().updatePlan(planId, { currentDayIndex: nextIdx });
   },
 }));

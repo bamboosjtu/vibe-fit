@@ -2,7 +2,10 @@ import { post, get } from './apiClient';
 import { exportAllData, importAllData } from '../db';
 import { useAuthStore } from '../stores/authStore';
 import { getCurrentISOString } from '../utils/helpers';
-import type { ExportData } from '../types';
+import { ExportDataSchema, type ExportData } from '../types';
+import { APP_VERSION } from '../app/version';
+
+export const MAX_BACKUP_BYTES = 10 * 1024 * 1024;
 
 export interface SyncStatus {
   lastSyncedAt: string | null;
@@ -16,15 +19,22 @@ export async function syncPush() {
   
   const data = await exportAllData();
   
-  const response = await post<{ success: boolean; syncedAt: string }>('/api/backups', {
+  const payload = {
     schemaVersion: data.settings?.schemaVersion || 1,
     exportedAt: getCurrentISOString(),
-    appVersion: '1.0.0',
+    appVersion: APP_VERSION,
     settings: data.settings,
     plans: data.plans,
     sessions: data.sessions,
     exercises: data.exercises,
-  });
+  };
+
+  const payloadBytes = new TextEncoder().encode(JSON.stringify(payload)).byteLength;
+  if (payloadBytes > MAX_BACKUP_BYTES) {
+    throw new Error('备份数据超过 10MiB，请先导出本地 JSON 并检查数据量');
+  }
+
+  const response = await post<{ success: boolean; syncedAt: string }>('/api/backups', payload);
 
   return response;
 }
@@ -37,11 +47,16 @@ export async function syncPull() {
   const response = await get<{ success: boolean; data: ExportData | null; syncedAt: string }>('/api/backups/latest');
   
   if (response.data) {
+    const parsed = ExportDataSchema.safeParse(response.data);
+    if (!parsed.success) {
+      throw new Error('云端备份格式无效，已保留本地数据');
+    }
+
     await importAllData({
-      settings: response.data.settings,
-      plans: response.data.plans,
-      sessions: response.data.sessions,
-      exercises: response.data.exercises,
+      settings: parsed.data.settings,
+      plans: parsed.data.plans,
+      sessions: parsed.data.sessions,
+      exercises: parsed.data.exercises,
     });
     return response;
   } else {

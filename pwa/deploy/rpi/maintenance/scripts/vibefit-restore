@@ -1,0 +1,65 @@
+#!/bin/sh
+set -eu
+umask 077
+
+if [ "${CONFIRM_RESTORE:-}" != "YES" ]; then
+  echo "Restore is destructive. Set CONFIRM_RESTORE=YES after validating the target database." >&2
+  exit 64
+fi
+if [ -z "${DATABASE_URL_FILE:-}" ] || [ ! -r "$DATABASE_URL_FILE" ]; then
+  echo "DATABASE_URL_FILE must point to a readable target database secret." >&2
+  exit 66
+fi
+if [ -z "${RESTIC_REPOSITORY:-}" ] || [ -z "${RESTIC_PASSWORD_FILE:-}" ]; then
+  echo "RESTIC_REPOSITORY and RESTIC_PASSWORD_FILE are required." >&2
+  exit 64
+fi
+
+snapshot=${RESTORE_SNAPSHOT:-latest}
+restore_dir=${RESTORE_DIR:-/restore}
+[ "$restore_dir" = "/restore" ] || {
+  echo "RESTORE_DIR must be the dedicated /restore mount." >&2
+  exit 64
+}
+mkdir -p "$restore_dir"
+find "$restore_dir" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+restic restore "$snapshot" --target "$restore_dir" --tag vibefit-server
+
+dump_file=$(find "$restore_dir" -type f -name 'vibefit-*.dump' | sort | tail -n 1)
+if [ -z "$dump_file" ] || [ ! -f "$dump_file" ]; then
+  echo "No PostgreSQL dump found in restored snapshot." >&2
+  exit 65
+fi
+
+checksum_file="$dump_file.sha256"
+if [ ! -f "$checksum_file" ]; then
+  echo "Missing checksum for restored dump: $dump_file" >&2
+  exit 65
+fi
+expected_hash=$(awk 'NR == 1 { print tolower($1); exit }' "$checksum_file")
+if ! echo "$expected_hash" | grep -Eq '^[0-9a-f]{64}$'; then
+  echo "Invalid SHA-256 checksum file: $checksum_file" >&2
+  exit 65
+fi
+actual_checksum_line=$(sha256sum "$dump_file")
+actual_hash=${actual_checksum_line%% *}
+if [ "$actual_hash" != "$expected_hash" ]; then
+  echo "SHA-256 mismatch for restored dump: $dump_file" >&2
+  exit 65
+fi
+pg_restore --list "$dump_file" >/dev/null
+
+database_url=$(tr -d '\r\n' < "$DATABASE_URL_FILE")
+psql \
+  --dbname="$database_url" \
+  --set=ON_ERROR_STOP=1 \
+  --command='DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;'
+pg_restore \
+  --exit-on-error \
+  --single-transaction \
+  --no-owner \
+  --no-privileges \
+  --dbname="$database_url" \
+  "$dump_file"
+
+echo "Restore completed from snapshot $snapshot"

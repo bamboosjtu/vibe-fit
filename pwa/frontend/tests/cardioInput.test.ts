@@ -65,6 +65,10 @@ describe('有氧配速格式化', () => {
     expect(formatPace(121)).toBe('2:01');
     expect(formatPace(119)).toBe('1:59'); // 四舍五入
   });
+
+  it('小数秒四舍五入后正确进位', () => {
+    expect(formatPace(119.6)).toBe('2:00');
+  });
 });
 
 // ── parseMetricInput：NaN 不进入 Store ───────────────────

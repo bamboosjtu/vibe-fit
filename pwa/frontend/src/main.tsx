@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import { initRepository } from './db/repository'
+import { initializeServerConfig } from './services/serverConfig'
 import './index.css'
 import './App.css'
 
@@ -14,6 +15,7 @@ import './App.css'
 // 确保用户始终拿到最新的构建产物。
 async function bootstrap() {
   await initRepository();
+  await initializeServerConfig();
 
   createRoot(document.getElementById('root')!).render(
     <StrictMode>

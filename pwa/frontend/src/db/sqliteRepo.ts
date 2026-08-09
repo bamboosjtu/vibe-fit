@@ -18,6 +18,7 @@ import {
   SQLITE_DB_VERSION,
 } from './sqliteSchema';
 import { getCurrentISOString } from '../utils/helpers';
+import { createSessionPayload, sessionFromSqliteRow } from './sqliteSessionMapper';
 
 /**
  * Android 数据访问实现：基于 @capacitor-community/sqlite。
@@ -260,14 +261,7 @@ export class SqliteRepository implements DataRepository {
   }
 
   private async upsertSession(session: TrainingSession): Promise<void> {
-    const payload: Record<string, unknown> = {
-      dayId: session.dayId,
-      dayName: session.dayName,
-      exercises: session.exercises,
-      notes: session.notes,
-      // planId 亦存入 payload，读取时优先用 plan_id 列
-      planId: session.planId,
-    };
+    const payload = createSessionPayload(session);
     const conn = this.getConnection();
     await conn.run(
       `INSERT OR REPLACE INTO sessions
@@ -284,18 +278,7 @@ export class SqliteRepository implements DataRepository {
   }
 
   private rowToSession(row: DbRow): TrainingSession {
-    const payload = parsePayload(row.payload);
-    return {
-      id: row.id as string,
-      // planId 优先取顶层 plan_id 列，回退到 payload.planId
-      planId: (row.plan_id as string | null) ?? (payload.planId as string | undefined),
-      startedAt: row.started_at as string,
-      endedAt: (row.ended_at as string | null) ?? undefined,
-      dayId: payload.dayId as string | undefined,
-      dayName: payload.dayName as string | undefined,
-      exercises: (payload.exercises as TrainingSession['exercises']) ?? [],
-      notes: payload.notes as string | undefined,
-    };
+    return sessionFromSqliteRow(row);
   }
 
   // 动作库
@@ -393,6 +376,7 @@ export class SqliteRepository implements DataRepository {
       { statement: 'DELETE FROM plans' },
       { statement: 'DELETE FROM sessions' },
       { statement: 'DELETE FROM settings' },
+      { statement: 'DELETE FROM pending_training' },
     ];
 
     if (data.settings) {
@@ -422,13 +406,7 @@ export class SqliteRepository implements DataRepository {
       });
     }
     for (const s of data.sessions ?? []) {
-      const payload: Record<string, unknown> = {
-        dayId: s.dayId,
-        dayName: s.dayName,
-        exercises: s.exercises,
-        notes: s.notes,
-        planId: s.planId,
-      };
+      const payload = createSessionPayload(s);
       tasks.push({
         statement: `INSERT OR REPLACE INTO sessions
           (id, plan_id, started_at, ended_at, payload) VALUES (?, ?, ?, ?, ?)`,
@@ -464,6 +442,14 @@ export class SqliteRepository implements DataRepository {
         'DELETE FROM sync_queue;',
         'DELETE FROM sync_meta;',
       ].join('\n'),
+      false,
+    );
+  }
+
+  async clearRemoteSyncState(): Promise<void> {
+    const conn = this.getConnection();
+    await conn.execute(
+      ['DELETE FROM sync_queue;', 'DELETE FROM sync_meta;'].join('\n'),
       false,
     );
   }

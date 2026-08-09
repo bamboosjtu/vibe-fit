@@ -23,6 +23,8 @@ import {
 import { useSessionStore, useSettingsStore } from '../../stores';
 import { formatTime, calculateSessionDuration, formatHistoryDuration } from '../../utils/helpers';
 import { formatTimer } from '../../domain/sessionTimer';
+import { formatPace } from '../../domain/cardioMetrics';
+import { getCardioStats } from '../../domain/historyStats';
 import { LoadingState } from '../../components/LoadingState';
 import type { TrainingSession, SessionExercise } from '../../types';
 
@@ -30,13 +32,6 @@ type SessionType = 'strength' | 'cardio' | 'mixed';
 
 interface GroupedSessions {
   [key: string]: TrainingSession[];
-}
-
-/** 配速格式化：秒 → MM:SS（如 125 → "2:05"） */
-function formatPaceForHistory(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds % 60);
-  return `${m}:${String(s).padStart(2, '0')}`;
 }
 
 export function HistoryPage() {
@@ -172,29 +167,6 @@ export function HistoryPage() {
       default:
         return '力量';
     }
-  };
-
-  // 获取有氧训练数据（从 cardioRecord.elapsedSeconds 读取，不从空 sets 统计）
-  // 距离统一以"米"聚合，展示时再按公里换算（避免 km 与 m 直接相加导致单位错误）
-  const getCardioStats = (session: TrainingSession) => {
-    let totalDurationSeconds = 0;
-    let totalDistanceMeters = 0;
-    let cardioCount = 0;
-
-    session.exercises.forEach(exercise => {
-      if (exercise.type === 'cardio') {
-        cardioCount++;
-        const record = exercise.cardioRecord;
-        if (record) {
-          totalDurationSeconds += record.elapsedSeconds ?? 0;
-          if (record.distanceMeters != null) {
-            totalDistanceMeters += record.distanceMeters;
-          }
-        }
-      }
-    });
-
-    return { durationSeconds: totalDurationSeconds, distanceMeters: totalDistanceMeters, count: cardioCount };
   };
 
   // 获取力量训练统计
@@ -721,7 +693,7 @@ function ExerciseDetail({
               )}
               {record.paceSecondsPer500m != null && (
                 <Typography variant="body2" color="text.secondary">
-                  平均配速: {formatPaceForHistory(record.paceSecondsPer500m)} /500m
+                  平均配速: {formatPace(record.paceSecondsPer500m)} /500m
                 </Typography>
               )}
               {record.resistance != null && (

@@ -12,6 +12,16 @@ import type {
 
 const mockBackupSnapshots: BackupRecord[] = [];
 
+export function resetMockBackupSnapshotsForTests(
+  records: BackupRecord[] = [],
+): void {
+  mockBackupSnapshots.splice(0, mockBackupSnapshots.length, ...records);
+}
+
+export function getMockBackupSnapshotsForTests(): BackupRecord[] {
+  return mockBackupSnapshots.map((record) => ({ ...record }));
+}
+
 function toUserRecord(user: {
   id: string;
   email: string;
@@ -126,6 +136,32 @@ class MockBackupRepository implements BackupRepository {
         .filter((backup) => backup.userId === userId)
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null
     );
+  }
+
+  async pruneExpiredByUserId(
+    userId: string,
+    options: { olderThan: Date; minToKeep: number },
+  ): Promise<number> {
+    const userSnapshots = mockBackupSnapshots
+      .filter((backup) => backup.userId === userId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const protectedIds = new Set(
+      userSnapshots.slice(0, options.minToKeep).map((backup) => backup.id),
+    );
+    const before = mockBackupSnapshots.length;
+
+    for (let index = mockBackupSnapshots.length - 1; index >= 0; index -= 1) {
+      const backup = mockBackupSnapshots[index];
+      if (
+        backup.userId === userId
+        && !protectedIds.has(backup.id)
+        && new Date(backup.createdAt).getTime() < options.olderThan.getTime()
+      ) {
+        mockBackupSnapshots.splice(index, 1);
+      }
+    }
+
+    return before - mockBackupSnapshots.length;
   }
 }
 

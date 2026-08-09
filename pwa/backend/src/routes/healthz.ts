@@ -1,8 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { env } from "../config/env.js";
 import { repositories } from "../repositories/index.js";
-
-const VERSION = "1.0.0";
+import { getDatabaseSchemaVersion } from "../db/prisma.js";
 
 export default async function healthzRoutes(fastify: FastifyInstance) {
   // 给 Cloud Run / 负载均衡 / 简单健康检查使用
@@ -22,7 +21,8 @@ export default async function healthzRoutes(fastify: FastifyInstance) {
       return reply.send({
         status: "ok",
         timestamp: new Date().toISOString(),
-        version: VERSION,
+        version: env.APP_VERSION,
+        gitRevision: env.GIT_REVISION,
         environment: env.NODE_ENV,
       });
     },
@@ -32,9 +32,13 @@ export default async function healthzRoutes(fastify: FastifyInstance) {
   fastify.get(
     "/api/version",
     async (_request: FastifyRequest, reply: FastifyReply) => {
+      const databaseSchemaVersion = await getDatabaseSchemaVersion();
       return reply.send({
         name: "vibe-fit-backend",
-        version: VERSION,
+        version: env.APP_VERSION,
+        releaseVersion: env.APP_VERSION,
+        gitRevision: env.GIT_REVISION,
+        databaseSchemaVersion,
         environment: env.NODE_ENV,
         authMode: env.AUTH_MODE,
         dataMode: env.DATA_MODE,

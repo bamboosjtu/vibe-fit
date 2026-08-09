@@ -1,0 +1,11 @@
+[Unit]
+Description=Verify VibeFit backup repository
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=@DEPLOY_DIR@
+ExecStart=@DEPLOY_DIR@/scripts/backup-check.sh
+NoNewPrivileges=true
+PrivateTmp=true

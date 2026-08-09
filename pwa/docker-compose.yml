@@ -12,12 +12,12 @@
 # 说明：
 #   - Caddy 作为 HTTPS 网关，在 :443 终止 TLS，按路径分流到 frontend / backend
 #   - 前端 nginx 也反向代理 /api/* → backend，支持直连模式下的同源访问
-#   - 数据库 schema 固定为版本 1，由 backend 启动时通过 psql 脚本初始化
-#   - Backend 与 Worker 使用独立 Docker build target，构建产物隔离
+#   - 数据库 schema 由一次性 migrate 服务应用，Backend 重启不会执行迁移
+#   - Backend 与 Worker 使用独立 Docker build target；Worker 包含清理快照所需的 Prisma Client
 
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:15.18-alpine@sha256:3d0f7584ed7d04e27fa050d6683a74746608faf21f202be78460d679cc56461f
     container_name: vibefit-postgres
     environment:
       POSTGRES_USER: vibefit
@@ -33,6 +33,19 @@ services:
       timeout: 5s
       retries: 10
 
+  migrate:
+    build:
+      context: ./backend
+      target: api-runtime
+    container_name: vibefit-migrate
+    command: ["migrate"]
+    environment:
+      DATABASE_URL: postgres://vibefit:vibefit_dev_password@postgres:5432/vibefit_dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   backend:
     build:
       context: ./backend
@@ -47,34 +60,49 @@ services:
       DATA_MODE: postgres
       EVENT_PUBLISHER: local
       DATABASE_URL: postgres://vibefit:vibefit_dev_password@postgres:5432/vibefit_dev
-      JWT_SECRET: dev-only-secret
-      CORS_ORIGIN: https://localhost,https://127.0.0.1,http://localhost:8081,http://127.0.0.1:8081,http://localhost:8080,http://127.0.0.1:8080
+      CORS_ORIGIN: https://localhost,https://127.0.0.1
       LOG_PRETTY: "false"
       WORKER_PUSH_URL: http://worker:8080/pubsub/backups
     ports:
       - "8080:8080"
     depends_on:
-      postgres:
+      migrate:
+        condition: service_completed_successfully
+      worker:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/readyz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # 本地事件 worker：接收 backend 通过 HTTP push 推来的 backup.created 事件
-  # 使用独立 worker-runtime build target，不含 Prisma Client 和数据库相关代码
+  # 使用独立 worker-runtime build target，通过数据库执行 90 天/至少 10 份保留策略
   worker:
     build:
       context: ./backend
       target: worker-runtime
     container_name: vibefit-worker
+    env_file:
+      ./backend/.env
     environment:
       NODE_ENV: production
       PORT: "8080"
       AUTH_MODE: mock
-      DATA_MODE: mock
+      DATA_MODE: postgres
       EVENT_PUBLISHER: mock
-      JWT_SECRET: dev-only-secret
+      DATABASE_URL: postgres://vibefit:vibefit_dev_password@postgres:5432/vibefit_dev
+      BACKUP_RETENTION_DAYS: "90"
+      BACKUP_MIN_SNAPSHOTS: "10"
       LOG_PRETTY: "false"
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   frontend:
     build:
@@ -92,7 +120,7 @@ services:
   # Caddy HTTPS 网关：家庭局域网 HTTPS 入口
   # 自动生成本地 CA 证书（tls internal），浏览器首次访问需信任
   caddy:
-    image: caddy:2-alpine
+    image: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
     container_name: vibefit-caddy
     ports:
       - "80:80"

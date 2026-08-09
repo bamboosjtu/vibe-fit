@@ -1,0 +1,11 @@
+[Unit]
+Description=Create verified encrypted VibeFit backup
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=@DEPLOY_DIR@
+ExecStart=@DEPLOY_DIR@/scripts/backup-now.sh
+NoNewPrivileges=true
+PrivateTmp=true

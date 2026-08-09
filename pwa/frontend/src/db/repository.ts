@@ -69,6 +69,7 @@ export interface DataRepository {
   // 导入导出 / 清空
   exportAllData(): Promise<ExportSnapshot>;
   importAllData(data: ImportPayload): Promise<void>;
+  clearRemoteSyncState(): Promise<void>;
   clearAllData(): Promise<void>;
 }
 

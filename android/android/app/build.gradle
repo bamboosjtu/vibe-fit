@@ -1,5 +1,11 @@
 apply plugin: 'com.android.application'
 
+import java.security.cert.CertificateFactory
+import java.security.cert.X509Certificate
+import java.util.Base64
+
+def vibeFitCaGeneratedDir = file("$buildDir/generated/vibefitCa/res")
+
 android {
     namespace = "com.vibefit.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +13,8 @@ android {
         applicationId "com.vibefit.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 83
+        versionName "1.1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -22,6 +28,73 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    sourceSets {
+        main.res.srcDir vibeFitCaGeneratedDir
+    }
+}
+
+tasks.register('prepareVibeFitRootCa') {
+    def outputFile = file("${vibeFitCaGeneratedDir}/raw/vibefit_root_ca.pem")
+    outputs.file outputFile
+    outputs.upToDateWhen { false }
+
+    doLast {
+        def configuredPath = System.getenv('VIBEFIT_CA_CERT_PATH') ?: project.findProperty('vibefitCaCertPath')
+        if (!configuredPath) {
+            throw new GradleException('Missing VIBEFIT_CA_CERT_PATH (public PEM root CA certificate)')
+        }
+
+        def sourceFile = file(configuredPath)
+        if (!sourceFile.isFile()) {
+            throw new GradleException("VIBEFIT_CA_CERT_PATH does not exist: ${sourceFile}")
+        }
+
+        def pem = sourceFile.getText('UTF-8')
+        if (!pem.contains('-----BEGIN CERTIFICATE-----') || !pem.contains('-----END CERTIFICATE-----')) {
+            throw new GradleException('VIBEFIT_CA_CERT_PATH must contain a PEM certificate')
+        }
+        if (pem.contains('PRIVATE KEY')) {
+            throw new GradleException('VIBEFIT_CA_CERT_PATH must never contain a private key')
+        }
+        if (pem.count('-----BEGIN CERTIFICATE-----') != 1) {
+            throw new GradleException('VIBEFIT_CA_CERT_PATH must contain exactly one root CA certificate')
+        }
+
+        X509Certificate certificate = null
+        try {
+            certificate = sourceFile.withInputStream { stream ->
+                CertificateFactory.getInstance('X.509').generateCertificate(stream) as X509Certificate
+            } as X509Certificate
+            certificate.checkValidity()
+        } catch (Exception error) {
+            throw new GradleException('VIBEFIT_CA_CERT_PATH must contain a currently valid X.509 certificate', error)
+        }
+        if (certificate.basicConstraints < 0) {
+            throw new GradleException('VIBEFIT_CA_CERT_PATH must be a CA certificate (CA:TRUE)')
+        }
+        if (certificate.subjectX500Principal != certificate.issuerX500Principal) {
+            throw new GradleException('VIBEFIT_CA_CERT_PATH must be a self-signed root CA certificate')
+        }
+        try {
+            certificate.verify(certificate.publicKey)
+        } catch (Exception error) {
+            throw new GradleException('VIBEFIT_CA_CERT_PATH root CA self-signature is invalid', error)
+        }
+
+        outputFile.parentFile.mkdirs()
+        // Re-encode only the parsed public certificate. Even if the input file
+        // contains unrelated text, nothing except the root CA enters the APK.
+        def encodedCertificate = Base64.getMimeEncoder(64, '\n'.getBytes('US-ASCII'))
+            .encodeToString(certificate.encoded)
+        outputFile.setText(
+            "-----BEGIN CERTIFICATE-----\n${encodedCertificate}\n-----END CERTIFICATE-----\n",
+            'US-ASCII',
+        )
+    }
+}
+
+tasks.named('preBuild').configure {
+    dependsOn tasks.named('prepareVibeFitRootCa')
 }
 
 repositories {

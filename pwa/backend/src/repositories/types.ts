@@ -53,6 +53,11 @@ export interface BackupRepository {
   }): Promise<BackupRecord>;
 
   getLatestByUserId(userId: string): Promise<BackupRecord | null>;
+
+  pruneExpiredByUserId(
+    userId: string,
+    options: { olderThan: Date; minToKeep: number },
+  ): Promise<number>;
 }
 
 export interface Repositories {

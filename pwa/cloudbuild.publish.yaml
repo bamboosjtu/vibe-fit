@@ -10,12 +10,11 @@
 #   - vibe-fit-worker:$BUILD_ID  + vibe-fit-worker:$_COMMIT_SHA
 #
 # 部署由独立配置 cloudbuild.deploy-gcp.yaml 完成。
-# 树莓派/局域网也可通过 $_COMMIT_SHA 标签拉取不可变版本。
+# 树莓派发布不使用此文件；使用 scripts/publish-acr.sh 与摘要锁。
 
 substitutions:
   _REGION: asia-east1
   _REPO: vibe-fit
-  _COMMIT_SHA: latest
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -23,7 +22,7 @@ options:
 steps:
   # ── 1. 类型检查（一次） ──────────────────────────────────
   - id: backend-typecheck
-    name: node:20-alpine
+    name: node:24.19.0-alpine3.23@sha256:244cc2b53f46f9e876304391d17682b0ddae9ac33491f4857e25e35a36ba7995
     dir: backend
     entrypoint: sh
     args:

@@ -173,6 +173,28 @@ class PostgresBackupRepository implements BackupRepository {
       createdAt: backup.createdAt.toISOString(),
     };
   }
+
+  async pruneExpiredByUserId(
+    userId: string,
+    options: { olderThan: Date; minToKeep: number },
+  ): Promise<number> {
+    const protectedSnapshots = await prisma.backupSnapshot.findMany({
+      where: { userId },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: options.minToKeep,
+      select: { id: true },
+    });
+
+    const result = await prisma.backupSnapshot.deleteMany({
+      where: {
+        userId,
+        createdAt: { lt: options.olderThan },
+        id: { notIn: protectedSnapshots.map((snapshot) => snapshot.id) },
+      },
+    });
+
+    return result.count;
+  }
 }
 
 export const postgresRepositories: Repositories = {

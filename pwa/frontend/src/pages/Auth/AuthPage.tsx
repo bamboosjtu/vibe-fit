@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Box,
   Typography,
@@ -12,16 +12,28 @@ import {
 import { useNavigate } from "react-router-dom";
 import {
   ArrowBack as ArrowBackIcon,
+  Dns as DnsIcon,
   Email as EmailIcon,
   Lock as LockIcon,
 } from "@mui/icons-material";
 import { useAuthStore } from "../../stores/authStore";
 import { post } from "../../services/apiClient";
+import { isNativePlatform } from '../../db/repository';
+import {
+  getConfiguredServerOrigin,
+  saveServerOrigin,
+  testServerConnection,
+} from '../../services/serverConfig';
 
-type Step = "email" | "code";
+type Step = "server" | "email" | "code";
 
 export function AuthPage() {
-  const [step, setStep] = useState<Step>("email");
+  const nativePlatform = isNativePlatform();
+  const configuredServer = getConfiguredServerOrigin();
+  const [step, setStep] = useState<Step>(
+    nativePlatform && !configuredServer ? "server" : "email",
+  );
+  const [serverInput, setServerInput] = useState(configuredServer ?? "");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
@@ -31,17 +43,37 @@ export function AuthPage() {
   const navigate = useNavigate();
   const setAuth = useAuthStore((state) => state.setAuth);
 
-  const startCooldown = () => {
-    setResendCooldown(60);
-    const timer = setInterval(() => {
-      setResendCooldown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+
+    const timer = window.setTimeout(() => {
+      setResendCooldown((previous) => Math.max(0, previous - 1));
     }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [resendCooldown]);
+
+  const startCooldown = () => setResendCooldown(60);
+
+  const handleConfigureServer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setInfo("");
+    setLoading(true);
+
+    try {
+      const result = await testServerConnection(serverInput);
+      await saveServerOrigin(result.origin);
+      setServerInput(result.origin);
+      setInfo(
+        `服务器连接成功${result.version ? `（版本 ${result.version}）` : ""}，延迟 ${result.latencyMs}ms`,
+      );
+      setStep("email");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "服务器连接失败");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSendCode = async (e: React.FormEvent) => {
@@ -158,7 +190,7 @@ export function AuthPage() {
               WebkitTextFillColor: "transparent",
             }}
           >
-            登录 VibeFit
+            {step === "server" ? "连接家庭服务器" : "登录 VibeFit"}
           </Typography>
 
           <Typography
@@ -168,7 +200,9 @@ export function AuthPage() {
             mb={4}
             sx={{ fontFamily: '"Nunito", sans-serif' }}
           >
-            {step === "email"
+            {step === "server"
+              ? "先配置由私有 CA 保护的 HTTPS 服务地址"
+              : step === "email"
               ? "使用邮箱验证码登录，同步训练数据到云端"
               : `已向 ${email} 发送验证码`}
           </Typography>
@@ -184,7 +218,51 @@ export function AuthPage() {
             </Alert>
           )}
 
-          {step === "email" ? (
+          {step === "server" ? (
+            <form onSubmit={handleConfigureServer}>
+              <TextField
+                fullWidth
+                label="服务器 HTTPS 地址"
+                placeholder="https://vibefit.home.example"
+                type="url"
+                value={serverInput}
+                onChange={(e) => setServerInput(e.target.value)}
+                margin="normal"
+                required
+                variant="outlined"
+                autoCapitalize="none"
+                autoCorrect="off"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <DnsIcon fontSize="small" color="action" />
+                    </InputAdornment>
+                  ),
+                }}
+                helperText="只接受 HTTPS 域名或 IP，不要填写 /api 路径"
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
+              />
+              <Button
+                type="submit"
+                fullWidth
+                variant="contained"
+                disabled={loading}
+                sx={{
+                  mt: 4,
+                  mb: 2,
+                  py: 1.5,
+                  borderRadius: "12px",
+                  background:
+                    "linear-gradient(135deg, #10B981 0%, #06B6D4 100%)",
+                  fontWeight: "bold",
+                  textTransform: "none",
+                  fontSize: "1rem",
+                }}
+              >
+                {loading ? "正在测试连接..." : "测试并保存"}
+              </Button>
+            </form>
+          ) : step === "email" ? (
             <form onSubmit={handleSendCode}>
               <TextField
                 fullWidth
@@ -238,7 +316,7 @@ export function AuthPage() {
                 type="text"
                 inputMode="numeric"
                 value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
                 margin="normal"
                 required
                 variant="outlined"
