@@ -3,7 +3,7 @@
 # 触发方式：
 #   gcloud builds submit --config=cloudbuild.publish.yaml \
 #     --substitutions=_REGION=asia-east1,_REPO=vibe-fit,_COMMIT_SHA=$(git rev-parse HEAD) \
-#     pwa/
+#     backend/
 #
 # 产出：
 #   - vibe-fit-backend:$BUILD_ID + vibe-fit-backend:$_COMMIT_SHA
@@ -23,7 +23,7 @@ steps:
   # ── 1. 类型检查（一次） ──────────────────────────────────
   - id: backend-typecheck
     name: node:24.19.0-alpine3.23@sha256:244cc2b53f46f9e876304391d17682b0ddae9ac33491f4857e25e35a36ba7995
-    dir: backend
+    dir: .
     entrypoint: sh
     args:
       - -c
@@ -34,7 +34,7 @@ steps:
   # ── 2. 构建 Backend 镜像（api-runtime） ──────────────────
   - id: build-backend-image
     name: gcr.io/cloud-builders/docker
-    dir: backend
+    dir: .
     args:
       - build
       - --target=api-runtime
@@ -47,7 +47,7 @@ steps:
   # ── 3. 构建 Worker 镜像（worker-runtime） ────────────────
   - id: build-worker-image
     name: gcr.io/cloud-builders/docker
-    dir: backend
+    dir: .
     args:
       - build
       - --target=worker-runtime

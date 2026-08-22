@@ -79,7 +79,7 @@
 > **当前状态**：本文件定义的 CSS 变量尚未在代码中作为单一真源落地。MUI 主题仅映射了部分语义令牌（`primary`/`warning`/`error` 等），其余颜色仍在组件 `sx` 中以十六进制字面量出现（如 `#05a978`、`#078c66`、`rgba(5,169,120,0.36)` 等）。
 >
 > **后续收敛计划**：
-> 1. 在 `pwa/frontend/src/theme` 中补全所有 `--vf-*` CSS 变量，并映射到 MUI `palette`；
+> 1. 在 `pwa/src/theme` 中补全所有 `--vf-*` CSS 变量，并映射到 MUI `palette`；
 > 2. 新增组件禁止再写品牌色字面量，统一使用 `theme.palette.primary.*` 或 `var(--vf-*)`；
 > 3. 既有硬编码颜色在后续迭代中分批迁移，迁移完成前允许临时存在，但不得新增。
 >
@@ -371,9 +371,9 @@ exerciseId -> asset
 
 资源规范：
 
-- 单张 PNG + TypeScript manifest（`pwa/frontend/src/constants/exerciseAssets.ts`）；
+- 单张 PNG + TypeScript manifest（`pwa/src/constants/exerciseAssets.ts`）；
 - 文件名 = `exerciseId` + `.png`（kebab-case，全小写）；
-- 资源目录：`pwa/frontend/public/assets/exercises/`；
+- 资源目录：`pwa/public/assets/exercises/`；
 - 风格统一，背景透明，主体居中；
 - 资源缺失时回退到统一占位（文字首字 + 品牌色淡背景）。
 

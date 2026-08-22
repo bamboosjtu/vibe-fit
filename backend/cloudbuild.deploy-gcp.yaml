@@ -5,7 +5,7 @@
 # 触发方式：
 #   gcloud builds submit --config=cloudbuild.deploy-gcp.yaml \
 #     --substitutions=_REGION=asia-east1,_REPO=vibe-fit,_IMAGE_TAG=$BUILD_ID \
-#     pwa/
+#     backend/
 #
 # 说明：
 #   - Backend 使用 vibe-fit-backend 镜像，不覆盖 command/args

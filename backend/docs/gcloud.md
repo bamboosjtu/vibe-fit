@@ -5,7 +5,9 @@
 > **重要**：本地构建已移除所有 GCP 依赖：
 > - 登录由 Google OAuth 改为**邮箱验证码登录**（163 SMTP）。
 > - 事件由 Pub/Sub 改为**本地 HTTP push 到 worker**（`LocalHttpEventPublisher`）。
-> - `pwa/backend` 已移除 `google-auth-library`、`@google-cloud/pubsub` 依赖，删除 `pubsubPublisher.ts`。
+> - `backend/` 已移除 `google-auth-library`、`@google-cloud/pubsub` 依赖，删除 `src/events/pubsubPublisher.ts`。
+>
+> 后端已从 `pwa/backend/` 抽离为顶层 `backend/` 目录，作为 PWA 与 Android 的共同云端备份服务。下文中所有 `cd backend` 命令均指顶层 `backend/`，所有 `cd frontend` / `cd pwa/frontend` 均应改为 `cd pwa`（前端已扁平化）。
 >
 > 本文件保留原 GCP 部署与运维的完整步骤，仅供未来如需重新上云时参考。如要恢复 GCP 方案，需重新引入上述依赖与对应实现。
 
@@ -294,7 +296,7 @@ $env:GOOGLE_CLIENT_ID=你的 Google OAuth Client ID
 cd backend
 npm install google-auth-library
 
-cd frontend
+cd ../pwa
 npm install @react-oauth/google
 ```
 

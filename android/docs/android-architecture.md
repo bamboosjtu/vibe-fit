@@ -14,7 +14,7 @@ VibeFit 当前是一个**前后端分离的移动端优先 PWA**：
 3. 最大化复用现有前端代码，避免重写业务逻辑与 UI。
 4. 云端备份保留为可选能力，不作为运行依赖。
 
-> 本文件描述安卓版的整体架构。原 Web/PWA 架构见 [development.md](../pwa/docs/development.md)。
+> 本文件描述安卓版的整体架构。后端架构见 [backend/docs/development.md](../../backend/docs/development.md)；PWA 平台说明见 [../../docs/platforms/pwa.md](../../docs/platforms/pwa.md)。
 
 ## 2. 技术选型
 
@@ -174,13 +174,13 @@ VibeFit 当前是一个**前后端分离的移动端优先 PWA**：
 | last_sync_error | TEXT | |
 | device_id | TEXT | |
 
-> 字段命名沿用现有 Dexie schema 语义，确保与 `pwa/frontend/src/types/index.ts` 的 zod schema 一一对应。
+> 字段命名沿用现有 Dexie schema 语义，确保与 `pwa/src/types/index.ts` 的 zod schema 一一对应。 SQLite schema 文件位于 `pwa/src/db/sqliteSchema.ts`，定义与 `pwa/src/types/index.ts` 的 zod schema 一一对应。
 
 ### 4.3 版本与迁移
 
 - 使用 `@capacitor-community/sqlite` 的 `version` 与 `migrate` 能力管理 schema 演进。
 - 每次启动校验 `PRAGMA user_version`，按需执行增量迁移脚本。
-- 迁移脚本与现有 `pwa/backend/prisma/migrations` 思路一致：每个版本一个 SQL 文件，顺序执行。
+- 迁移脚本与现有 `backend/prisma/migrations` 思路一致：每个版本一个 SQL 文件，顺序执行。
 
 ## 5. 数据访问层（Repository 抽象）
 
@@ -188,7 +188,7 @@ VibeFit 当前是一个**前后端分离的移动端优先 PWA**：
 
 ### 5.1 接口定义
 
-在 `pwa/frontend/src/db/repository.ts` 中定义统一接口，对齐现有 [db/index.ts](../../pwa/frontend/src/db/index.ts) 暴露的方法：
+在 `pwa/src/db/repository.ts` 中定义统一接口，对齐现有 [db/index.ts](../../pwa/src/db/index.ts) 暴露的方法：
 
 ```typescript
 export interface DataRepository {
@@ -232,7 +232,7 @@ export interface DataRepository {
 
 ### 5.2 双实现
 
-- `DexieRepository`：封装现有 [db/index.ts](../../pwa/frontend/src/db/index.ts) 的 Dexie 调用，保持 Web/PWA 行为不变。
+- `DexieRepository`：封装现有 [db/index.ts](../../pwa/src/db/index.ts) 的 Dexie 调用，保持 Web/PWA 行为不变。
 - `SqliteRepository`：基于 `@capacitor-community/sqlite` 实现，JSON 列读写 + 顶层索引查询。
 
 ### 5.3 工厂选择
@@ -251,9 +251,9 @@ export const repository = createRepository();
 
 ### 5.4 Store 改造范围
 
-现有 [planStore.ts](../../pwa/frontend/src/stores/planStore.ts)、[sessionStore.ts](../../pwa/frontend/src/stores/sessionStore.ts)、[settingsStore.ts](../../pwa/frontend/src/stores/settingsStore.ts) 直接 `import { ... } from '../db'`。改造方式：
+现有 [planStore.ts](../../pwa/src/stores/planStore.ts)、[sessionStore.ts](../../pwa/src/stores/sessionStore.ts)、[settingsStore.ts](../../pwa/src/stores/settingsStore.ts) 直接 `import { ... } from '../db'`。改造方式：
 
-- 将 `pwa/frontend/src/db/index.ts` 的具名导出改为**透传 `repository`**（`export const getAllPlans = () => repository.getAllPlans()`）。
+- 将 `pwa/src/db/index.ts` 的具名导出改为**透传 `repository`**（`export const getAllPlans = () => repository.getAllPlans()`）。
 - 或让 store 直接 import `repository`。
 - **业务逻辑、计时器、组记录操作等全部保持不变。**
 
@@ -270,10 +270,10 @@ export const repository = createRepository();
 
 ## 7. 云端同步（可选）
 
-复用现有后端 [routes/sync.ts](../../pwa/backend/src/routes/sync.ts) 与 `POST /api/backups`、`GET /api/backups/latest`，不改后端契约。
+复用现有后端 [routes/sync.ts](../../backend/src/routes/sync.ts) 与 `POST /api/backups`、`GET /api/backups/latest`，不改后端契约。
 
 - **触发**：设置页手动「备份到云端」/「从云端恢复」，或可选定时任务。
-- **前置**：需登录（沿用 [authStore](../../pwa/frontend/src/stores/authStore.ts) JWT）。
+- **前置**：需登录（沿用 [authStore](../../pwa/src/stores/authStore.ts) JWT）。
 - **格式**：直接使用 `repository.exportAllData()` 的产物，与现有 `ExportData` zod schema 一致。
 - **降级**：无网络/未登录时静默跳过，不影响本地功能。
 
@@ -291,34 +291,46 @@ export const repository = createRepository();
 | 应用快捷方式 | `@capacitor-community/app-shortcuts` | 桌面长按 → 「开始训练」 |
 | 启动屏 | `@capacitor/splash-screen` | 原生启动屏 |
 
-**休息计时器关键改造**：现有 [sessionStore](../../pwa/frontend/src/stores/sessionStore.ts) 的 `restTimer` 在前台用 `setInterval` 递减；Android 上需在计时启动时注册 Local Notification，到点触发，保证后台/锁屏可提示。
+**休息计时器关键改造**：现有 [sessionStore](../../pwa/src/stores/sessionStore.ts) 的 `restTimer` 在前台用 `setInterval` 递减；Android 上需在计时启动时注册 Local Notification，到点触发，保证后台/锁屏可提示。
 
 ## 9. 目录结构
 
-仓库分为 `pwa/`（Web/PWA 前后端 + 本地 Docker 部署）与 `android/`（Capacitor 安卓工程）两部分，共享 UI 设计放在根 `docs/`：
+仓库拆分为四个顶层目录：`pwa/`（纯前端 H5/PWA，离线优先）、`backend/`（Fastify + Prisma，PWA 与 Android 的共同云端备份服务）、`android/`（Capacitor 安卓工程）、`docs/`（跨端共享：UI 设计、数据契约、架构决策）。
 
 ```
 fit-topic/
-├── pwa/                            # Web/PWA 应用
-│   ├── frontend/
-│   │   └── src/
-│   │       ├── db/
-│   │       │   ├── repository.ts      # DataRepository 接口 + 平台检测
-│   │       │   ├── sqliteSchema.ts    # SQLite 建表/迁移 SQL
-│   │       │   └── index.ts           # Dexie（Web 当前数据层）
-│   │       ├── services/
-│   │       │   └── nativeBridge.ts    # 原生能力桥接（Web fallback）
-│   │       └── ...
-│   ├── backend/                       # Fastify + Prisma（可选云端备份）
-│   └── docker-compose.yml             # 本地 Docker 部署
+├── pwa/                            # 纯前端 H5/PWA（React 19 + Vite，离线优先）
+│   ├── src/
+│   │   ├── db/
+│   │   │   ├── repository.ts        # DataRepository 接口 + 平台检测
+│   │   │   ├── sqliteSchema.ts      # SQLite 建表/迁移 SQL（Android 用）
+│   │   │   ├── dexieRepo.ts          # DexieRepository（Web 实现）
+│   │   │   ├── sqliteRepo.ts        # SqliteRepository（Android 实现）
+│   │   │   └── index.ts             # 工厂选择 + Dexie 默认导出
+│   │   ├── services/
+│   │   │   ├── nativeBridge.ts      # 原生能力桥接（Web fallback）
+│   │   │   ├── capacitorBridge.ts   # Capacitor 桥接实现
+│   │   │   └── apiClient.ts         # 后端 API 调用
+│   │   └── ...
+│   ├── docker-compose.yml           # 前端本地容器栈（仅 frontend :8081）
+│   └── docker-bake.hcl             # 前端镜像多架构构建
+├── backend/                        # Fastify + Prisma 后端（PWA 与 Android 共同云端备份）
+│   ├── src/
+│   ├── prisma/                     # Prisma schema + 迁移 SQL
+│   ├── deploy/rpi/                 # 树莓派一体化部署套件（含 frontend 镜像引用）
+│   ├── docker-compose.yml          # 后端本地容器栈（postgres + migrate + backend + worker）
+│   └── docker-bake.hcl             # 后端镜像多架构构建（backend/worker/maintenance/postgres/caddy）
 ├── android/                        # Capacitor 安卓工程
-│   ├── capacitor.config.ts            # webDir → ../pwa/frontend/dist
-│   ├── package.json                   # Capacitor 8 依赖
-│   ├── android/                       # 原生 Android Studio 工程（cap add android 生成）
+│   ├── capacitor.config.ts          # webDir → ../pwa/dist
+│   ├── package.json                 # Capacitor 8 依赖
+│   ├── android/                     # 原生 Android Studio 工程（cap add android 生成）
 │   └── docs/
-│       └── android-architecture.md    # 本文件
-├── docs/                           # 跨端共享：UI 设计
-│   └── 原型图.png
+│       └── android-architecture.md  # 本文件
+├── docs/                           # 跨端共享：UI 设计、数据契约、架构决策
+│   ├── architecture-decision.md
+│   ├── platforms/{pwa,android}.md
+│   ├── ui/...
+│   └── 部署架构图.png
 └── README.md / AGENTS.md
 ```
 
@@ -330,7 +342,7 @@ fit-topic/
 # 在 android/ 目录下执行
 cd android
 
-# 1. 构建 PWA 前端并同步到原生工程（产物到 ../pwa/frontend/dist）
+# 1. 构建 PWA 前端并同步到原生工程（产物到 ../pwa/dist）
 npm run sync
 
 # 2. Android Studio 打开原生工程调试 / 运行
@@ -378,7 +390,7 @@ P1 阶段仍用 IndexedDB 的用户，在 P3/P5 升级后需迁移：
 
 ### 验证门槛
 
-- 每阶段必须：`cd pwa/frontend && npm run build` 通过。
+- 每阶段必须：`cd pwa && npm run build` 通过。
 - Web E2E 100% 通过后才允许推进下一阶段。
 - Android 端以真机/模拟器手动走查 + 关键路径截图归档。
 
@@ -397,5 +409,5 @@ P1 阶段仍用 IndexedDB 的用户，在 P3/P5 升级后需迁移：
 
 - **Web/PWA 不废弃**：仓储抽象后，Web 仍走 Dexie，保持原 PWA 行为与部署。
 - **后端不改造**：云端同步契约不变，Fastify + Prisma + PostgreSQL 原样复用。
-- **类型契约统一**：`pwa/frontend/src/types/index.ts` 的 zod schema 为前后端、Web/Android 共享的唯一数据契约。
+- **类型契约统一**：`pwa/src/types/index.ts` 的 zod schema 为前后端、Web/Android 共享的唯一数据契约。
 - **渐进演进**：先跑通 Capacitor 容器（P1），再逐步替换存储与原生能力，每一步都有可回退的绿基线。

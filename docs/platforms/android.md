@@ -1,17 +1,17 @@
 # Android 平台说明
 
-VibeFit Android 是基于 Capacitor 8 封装 `pwa/frontend` 的离线应用，原生工程位于 `android/android/`（由 `cap add android` 生成，已 gitignore）。架构细节见 `android/docs/android-architecture.md`。
+VibeFit Android 是基于 Capacitor 8 封装 `pwa/` 构建产物的离线应用，原生工程位于 `android/android/`（由 `cap add android` 生成，已 gitignore）。架构细节见 `android/docs/android-architecture.md`。后端独立部署在 `backend/`，作为 Android 与 PWA 的共同云端备份服务。
 
 ## Capacitor 封装
 
-- 复用 `pwa/frontend` 构建产物，通过 `npx cap copy android` 同步到原生工程；
-- 不 fork 前端代码，平台差异通过 `pwa/frontend/src/services/nativeBridge.ts` 桥接；
+- 复用 `pwa/dist` 构建产物，通过 `npx cap copy android` 同步到原生工程；
+- 不 fork 前端代码，平台差异通过 `pwa/src/services/nativeBridge.ts` 桥接；
 - 升级前端依赖时同步检查 Capacitor 插件版本兼容性。
 
 ## 本地 SQLite
 
-- 训练数据在 Android 端写入本地 SQLite，schema 与 `pwa/frontend/src/db/sqliteSchema.ts` 对齐；
-- 共享数据层骨架在 `pwa/frontend/src/db/repository.ts`，仓储实现按平台切换；
+- 训练数据在 Android 端写入本地 SQLite，schema 与 `pwa/src/db/sqliteSchema.ts` 对齐；
+- 共享数据层骨架在 `pwa/src/db/repository.ts`，仓储实现按平台切换；
 - 不引入云端依赖即可完整记录训练。
 
 ## 原生能力

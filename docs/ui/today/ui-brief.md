@@ -1,10 +1,10 @@
 # 今日训练 UI Brief
 
 > 状态：Baseline v1
-> 适用范围：`pwa/frontend` 的 H5/PWA、Capacitor Android 复用界面
+> 适用范围：`pwa` 的 H5/PWA、Capacitor Android 复用界面
 > 关联原型图：[`docs/prototype/今日训练.png`](../../prototype/今日训练.png)
 > 配套规范：[`docs/design-system.md`](../../design-system.md)
-> 数据契约：[`pwa/frontend/src/domain/trainingContext.ts`](../../../pwa/frontend/src/domain/trainingContext.ts)
+> 数据契约：[`pwa/src/domain/trainingContext.ts`](../../../pwa/src/domain/trainingContext.ts)
 
 ## 1. 页面目标
 
@@ -34,7 +34,7 @@
 
 ## 4. 数据绑定
 
-页面统一通过 `buildTrainingContext(currentPlan, todayDay, activeSession)` 生成 `TrainingContextViewModel`，不得在组件内临时拼接。类型定义见 `pwa/frontend/src/domain/trainingContext.ts`。
+页面统一通过 `buildTrainingContext(currentPlan, todayDay, activeSession)` 生成 `TrainingContextViewModel`，不得在组件内临时拼接。类型定义见 `pwa/src/domain/trainingContext.ts`。
 
 | UI 元素 | 字段来源 |
 |---|---|
@@ -126,7 +126,7 @@ idle ──开始训练──▶ running ──暂停──▶ paused ──继�
 | 文件路径 | `/assets/exercises/<id>.png` 走静态托管 | 同 PWA 路径，由 Capacitor WebView 解析 |
 | 部署 | 本地 Docker / GCP，见 [`docs/platforms/pwa.md`](../../platforms/pwa.md) | 打包 APK，见 [`docs/platforms/android.md`](../../platforms/android.md) |
 
-两者共用同一份 `pwa/frontend` 代码，差异通过 `nativeBridge.ts` 抽象，UI 层不写平台分支。
+两者共用同一份 `pwa` 代码，差异通过 `nativeBridge.ts` 抽象，UI 层不写平台分支。
 
 ## 9. 加载、空状态和异常状态
 

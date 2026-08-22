@@ -5,7 +5,7 @@
   "type": "module",
   "description": "VibeFit Android shell (Capacitor) - wraps the PWA frontend with native capabilities and local SQLite.",
   "scripts": {
-    "build:web": "npm --prefix ../pwa/frontend run build",
+    "build:web": "npm --prefix ../pwa run build",
     "sync": "npm run build:web && cap sync android",
     "sync:android": "cap sync android",
     "open": "cap open android",

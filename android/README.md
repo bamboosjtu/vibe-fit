@@ -1,6 +1,6 @@
 # VibeFit Android
 
-VibeFit 安卓离线版，基于 **Capacitor 8** 封装 `pwa/frontend` 构建产物，提供本地 SQLite 存储与原生能力。
+VibeFit 安卓离线版，基于 **Capacitor 8** 封装 `pwa/` 构建产物，提供本地 SQLite 存储与原生能力。后端独立部署在 `backend/`，作为 PWA 与 Android 的共同云端备份服务。
 
 架构设计见 [docs/android-architecture.md](./docs/android-architecture.md)。
 
@@ -8,7 +8,7 @@ VibeFit 安卓离线版，基于 **Capacitor 8** 封装 `pwa/frontend` 构建产
 
 ```
 android/
-├── capacitor.config.ts        # Capacitor 配置（webDir 指向 ../pwa/frontend/dist）
+├── capacitor.config.ts        # Capacitor 配置（webDir 指向 ../pwa/dist）
 ├── package.json               # Capacitor 依赖与脚本
 ├── android/                   # 已纳入版本管理的原生 Android Studio 工程
 └── docs/
@@ -65,12 +65,12 @@ cd android/android
 
 ## 数据层说明
 
-前端数据访问已抽象为 `DataRepository`（位于 `pwa/frontend/src/db/repository.ts`）：
+前端数据访问已抽象为 `DataRepository`（位于 `pwa/src/db/repository.ts`）：
 
 - Web/PWA：`DexieRepository`（IndexedDB）
 - Android：`SqliteRepository`（`@capacitor-community/sqlite`）
 
-运行时由 `Capacitor.isNativePlatform()` 自动选择实现，上层 store 与组件无需改动。SQLite 建表脚本见 `pwa/frontend/src/db/sqliteSchema.ts`。
+运行时由 `Capacitor.isNativePlatform()` 自动选择实现，上层 store 与组件无需改动。SQLite 建表脚本见 `pwa/src/db/sqliteSchema.ts`。
 
 ## 原生能力
 

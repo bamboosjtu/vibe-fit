@@ -1,12 +1,12 @@
 # 开发指南
 
-本文件面向 VibeFit PWA 的开发者，整合系统架构、后端 API 契约与数据库设计。部署相关内容见 [deployment.md](./deployment.md)（本地 Docker）与 [gcloud.md](./gcloud.md)（GCP 可选云端）。Android 端架构见 [android/docs/android-architecture.md](../../android/docs/android-architecture.md)。
+本文件面向 VibeFit 后端开发者，整合系统架构、后端 API 契约与数据库设计。后端作为 PWA（`pwa/`）与 Android（`android/`）的共同云端备份服务，独立部署在 `backend/`。部署相关内容见 [deployment.md](./deployment.md)（本地 Docker）与 [gcloud.md](./gcloud.md)（GCP 可选云端）。Android 端架构见 [android/docs/android-architecture.md](../../android/docs/android-architecture.md)；PWA 前端开发见 [../../docs/platforms/pwa.md](../../docs/platforms/pwa.md)。
 
 ## 1. 系统架构
 
-VibeFit 是一个移动端优先的离线优先 PWA。前端本地数据为唯一可信源，后端仅用于可选的云端全量快照备份/恢复，不参与日常读写。
+VibeFit 是移动端优先的离线优先应用。前端（PWA H5 / Android Capacitor）本地数据为唯一可信源，后端仅用于可选的云端全量快照备份/恢复，不参与日常读写。
 
-![部署架构图](./部署架构图.png)
+![部署架构图](../../docs/部署架构图.png)
 
 ### 本地开发环境链路
 
@@ -63,13 +63,13 @@ UI → Zustand store → Dexie (IndexedDB) → 返回 UI     # 全程不依赖�
                   └─────────────────┘
 ```
 
-> 数据访问层正在抽象为统一的 `DataRepository` 接口（见 `pwa/frontend/src/db/repository.ts`），未来 Web 用 Dexie、Android 用 SQLite，上层 store 与组件无需改动。详见 [android/docs/android-architecture.md](../../android/docs/android-architecture.md)。
+> 数据访问层抽象为统一的 `DataRepository` 接口（见 `pwa/src/db/repository.ts`），Web 用 Dexie、Android 用 SQLite，上层 store 与组件无需改动。详见 [android/docs/android-architecture.md](../../android/docs/android-architecture.md)。
 
 ## 3. 后端 API
 
-后端使用 **Node.js + TypeScript + Fastify** 构建，为离线优先的前端提供可选的云端同步和备份层。
+后端使用 **Node.js + TypeScript + Fastify** 构建，独立部署在 `backend/`，作为 PWA 与 Android 的共同云端备份服务。
 
-本地 Docker 部署使用 PostgreSQL（Prisma）；测试模式（`DATA_MODE=mock`）使用内存模拟数据库（`pwa/backend/src/mockDb.ts`）验证 API 逻辑。
+本地 Docker 部署使用 PostgreSQL（Prisma）；测试模式（`DATA_MODE=mock`）使用内存模拟数据库（`backend/src/mockDb.ts`）验证 API 逻辑。
 
 ### 运行模式
 
@@ -235,7 +235,7 @@ Vibe-Fit 采用离线优先（Offline-First）的设计模式。
 - `lastSyncedAt` (DateTime)
 - `lastSyncStatus` (String)
 
-> Prisma schema 定义在 `pwa/backend/prisma/schema.prisma`，迁移文件在 `pwa/backend/prisma/migrations/`。
+> Prisma schema 定义在 `backend/prisma/schema.prisma`，迁移文件在 `backend/prisma/migrations/`。
 
 ### 4.3 同步策略
 
@@ -248,31 +248,41 @@ Vibe-Fit 采用离线优先（Offline-First）的设计模式。
 
 ## 5. 本地开发命令
 
+后端独立部署，前端单独在 `pwa/` 开发；两端通过 HTTP API 与 zod 契约解耦。
+
 ```bash
-# 前端
-cd pwa/frontend
+# 前端（PWA H5）
+cd pwa
 npm run dev          # 启动 Vite dev server
 npm run build        # 构建（含 tsc -b）
 npm run lint         # ESLint
 npm test             # Vitest
 
 # 后端
-cd pwa/backend
+cd backend
 npm run dev          # 启动后端 API watcher
 npm run dev:worker   # 启动 worker watcher
 npm run build        # 构建
 npm run typecheck    # 类型检查
 npm run db:migrate   # Prisma 开发迁移
-
-# 一体化本地部署
-cd pwa
-docker compose up -d --build
 ```
 
-详细部署说明见 [deployment.md](./deployment.md)。
+本地容器栈已拆分为前后端独立 compose（见下文）。前端不依赖 backend 容器即可离线运行；联调云端备份时分别启动两端。
+
+```bash
+# 前端容器栈（纯前端，离线优先）
+cd pwa
+docker compose up -d --build      # http://localhost:8081
+
+# 后端容器栈（postgres + migrate + backend + worker）
+cd backend
+docker compose up -d --build      # http://localhost:8080
+```
+
+详细部署说明见 [deployment.md](./deployment.md)（后端）与 [../../docs/platforms/pwa.md](../../docs/platforms/pwa.md)（前端）。
 
 ## 6. 测试
 
-- 前端单测：Vitest + Testing Library，测试放在 `pwa/frontend/tests/`（`*.test.ts` / `*.test.tsx`）。纯逻辑测试使用 Node 环境，仅 React 组件测试通过文件头的 `@vitest-environment jsdom` 启用 jsdom，避免无关的 DOM 初始化开销。
+- 前端单测：Vitest + Testing Library，测试放在 `pwa/tests/`（`*.test.ts` / `*.test.tsx`）。纯逻辑测试使用 Node 环境，仅 React 组件测试通过文件头的 `@vitest-environment jsdom` 启用 jsdom，避免无关的 DOM 初始化开销。
 - 后端：暂未配置测试，改后端行为前先跑 `npm run typecheck` 与 `npm run build`。
-- 数据校验：导入/导出/同步 payload 全部走 `pwa/frontend/src/types/index.ts` 的 zod schema。
+- 数据校验：导入/导出/同步 payload 全部走 `pwa/src/types/index.ts` 的 zod schema。

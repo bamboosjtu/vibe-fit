@@ -9,16 +9,16 @@ lerna-debug.log*
 
 # Dependencies
 node_modules
-pwa/frontend/node_modules
-pwa/backend/node_modules
+pwa/node_modules
+backend/node_modules
 android/node_modules
 
 # Build outputs
 dist
 dist-ssr
 *.local
-pwa/frontend/dist
-pwa/backend/dist
+pwa/dist
+backend/dist
 
 # Editor directories and files
 .vscode/*

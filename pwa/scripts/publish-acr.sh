@@ -1,18 +1,30 @@
 #!/bin/sh
+# 发布 VibeFit Frontend (PWA/H5) 镜像到阿里云 ACR（多架构 + 不可变摘要锁）。
+#
+# 用法：在 pwa/ 目录下
+#   ACR_REGISTRY=crpi-xxx.personal.cr.aliyuncs.com \
+#   ACR_NAMESPACE=vibefit \
+#   RELEASE_VERSION=1.1.0 \
+#   ./scripts/publish-acr.sh
+#
+# 产出镜像（linux/amd64 + linux/arm64）：
+#   - vibefit-frontend
+#
+# 追加 FRONTEND_IMAGE 到 backend/deploy/rpi/images.lock.env（若已由后端脚本初始化）。
+# 若该锁文件不存在，则创建仅含 FRONTEND_IMAGE 的临时锁，提示需先发布后端镜像。
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PWA_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 cd "$PWA_DIR"
 
-base_image_lock=deploy/rpi/base-images.lock.env
+base_image_lock=scripts/base-images.lock.env
 [ -r "$base_image_lock" ] || {
   echo "Missing base image lock: $base_image_lock" >&2
   exit 66
 }
-# Values are repository-controlled immutable image references without whitespace.
 . "./$base_image_lock"
-export NODE_IMAGE NGINX_IMAGE POSTGRES_IMAGE CADDY_IMAGE
+export NODE_IMAGE NGINX_IMAGE
 
 required() {
   name=$1
@@ -70,45 +82,40 @@ VERSION="$release_version" \
 GIT_REVISION="$git_revision" \
 docker buildx bake --file docker-bake.hcl --push
 
-lock_file=$(mktemp deploy/rpi/images.lock.env.tmp.XXXXXX)
-trap 'rm -f "$lock_file"' EXIT HUP INT TERM
-{
-  echo "RELEASE_VERSION=$release_version"
-  echo "GIT_REVISION=$git_revision"
-} > "$lock_file"
+# 镜像锁文件归 backend/deploy/rpi/images.lock.env（rpi compose 统一加载）。
+# 这里只追加/更新 FRONTEND_IMAGE 行。
+backend_lock="../backend/deploy/rpi/images.lock.env"
+tmp_lock=$(mktemp)
+trap 'rm -f "$tmp_lock"' EXIT HUP INT TERM
 
-for pair in \
-  "BACKEND_IMAGE vibefit-backend" \
-  "WORKER_IMAGE vibefit-worker" \
-  "FRONTEND_IMAGE vibefit-frontend" \
-  "MAINTENANCE_IMAGE vibefit-maintenance" \
-  "POSTGRES_IMAGE vibefit-postgres" \
-  "CADDY_IMAGE vibefit-caddy"
-do
-  variable_name=${pair%% *}
-  repository_name=${pair#* }
-  image="$ACR_REGISTRY/$ACR_NAMESPACE/$repository_name:$release_tag"
-  inspection=$(docker buildx imagetools inspect "$image")
-  echo "$inspection" | grep -q "linux/amd64" || {
-    echo "$image is missing linux/amd64" >&2
-    exit 65
-  }
-  echo "$inspection" | grep -q "linux/arm64" || {
-    echo "$image is missing linux/arm64" >&2
-    exit 65
-  }
-  # The first Digest line is the multi-platform index digest documented by
-  # `imagetools inspect`; child manifests are rendered as Name: ...@sha256.
-  digest=$(printf '%s\n' "$inspection" \
-    | sed -n 's/^[[:space:]]*Digest:[[:space:]]*//p' \
-    | head -n 1)
-  echo "$digest" | grep -Eq '^sha256:[0-9a-f]{64}$' || {
-    echo "Cannot resolve an immutable digest for $image: $digest" >&2
-    exit 65
-  }
-  echo "$variable_name=$ACR_REGISTRY/$ACR_NAMESPACE/$repository_name@$digest" >> "$lock_file"
-done
+image="$ACR_REGISTRY/$ACR_NAMESPACE/vibefit-frontend:$release_tag"
+inspection=$(docker buildx imagetools inspect "$image")
+echo "$inspection" | grep -q "linux/amd64" || {
+  echo "$image is missing linux/amd64" >&2
+  exit 65
+}
+echo "$inspection" | grep -q "linux/arm64" || {
+  echo "$image is missing linux/arm64" >&2
+  exit 65
+}
+digest=$(printf '%s\n' "$inspection" \
+  | sed -n 's/^[[:space:]]*Digest:[[:space:]]*//p' \
+  | head -n 1)
+echo "$digest" | grep -Eq '^sha256:[0-9a-f]{64}$' || {
+  echo "Cannot resolve an immutable digest for $image: $digest" >&2
+  exit 65
+}
+frontend_line="FRONTEND_IMAGE=$ACR_REGISTRY/$ACR_NAMESPACE/vibefit-frontend@$digest"
 
-mv "$lock_file" deploy/rpi/images.lock.env
-trap - EXIT HUP INT TERM
-echo "Published $release_tag and wrote deploy/rpi/images.lock.env"
+if [ -r "$backend_lock" ]; then
+  # 移除已有 FRONTEND_IMAGE 行（若存在），再追加新行。
+  grep -v '^FRONTEND_IMAGE=' "$backend_lock" > "$tmp_lock" || true
+  echo "$frontend_line" >> "$tmp_lock"
+  mv "$tmp_lock" "$backend_lock"
+  trap - EXIT HUP INT TERM
+  echo "Appended FRONTEND_IMAGE to $backend_lock"
+else
+  echo "$backend_lock not found. Run backend/scripts/publish-acr.sh first." >&2
+  echo "FRONTEND_IMAGE line: $frontend_line" >&2
+  exit 65
+fi

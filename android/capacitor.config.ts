@@ -5,7 +5,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.vibefit.app',
   appName: 'VibeFit',
-  webDir: '../pwa/frontend/dist',
+  webDir: '../pwa/dist',
   server: {
     androidScheme: 'https',
   },

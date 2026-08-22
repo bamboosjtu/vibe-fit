@@ -1,12 +1,13 @@
 # PWA 平台说明
 
-VibeFit 的 Web/PWA 构建产物来自 `pwa/frontend`，通过本地 Docker 或 GCP 部署，详见 `pwa/docs/deployment.md` 与 `pwa/docs/gcloud.md`。
+VibeFit 的 Web/PWA 构建产物来自 `pwa/`（纯前端，离线优先），通过本地 Docker 或树莓派生产部署。后端独立部署在 `backend/`，作为 PWA 与 Android 的共同云端备份服务，详见 [`../../backend/docs/deployment.md`](../../backend/docs/deployment.md)（本地）与 [`../../backend/docs/raspberry-pi.md`](../../backend/docs/raspberry-pi.md)（生产）。
 
 ## 部署
 
-- 本地：`pwa/docker-compose.yml` 拉起 postgres + migrate + backend + worker + frontend；
-- 生产：静态资源由 frontend 容器或 CDN 托管，后端 Fastify 提供 `/api` 与可选云端备份；
-- 前端构建命令遵循 `pwa/frontend/package.json`，输出到 `dist/`。
+- 本地前端栈：`pwa/docker-compose.yml` 仅拉起 `frontend`（nginx + 构建产物 + SW），`:8081`，**不依赖 backend 容器**；
+- 本地后端联调：另起 `backend/docker-compose.yml`（postgres + migrate + backend + worker，`:8080`）；
+- 生产：静态资源由 `vibefit-frontend` 容器或 CDN 托管，后端 Fastify 提供 `/api` 与可选云端备份；树莓派一体化部署由 `backend/deploy/rpi/compose.yaml` 编排（通过 `FRONTEND_IMAGE` 引用前端镜像）；
+- 前端构建命令遵循 `pwa/package.json`，输出到 `pwa/dist/`。
 
 ## Service Worker
 
@@ -19,8 +20,8 @@ VibeFit 的 Web/PWA 构建产物来自 `pwa/frontend`，通过本地 Docker 或 
 
 - 生产必须 HTTPS，否则 Service Worker、IndexedDB 部分能力受限；
 - 本地开发可用 `vite` 自带 HTTP，Docker 部署通过反向代理终结 TLS；
-- 不在代码中硬编码证书路径，统一走环境变量与 `pwa/backend/.env.example` 模板。
+- 不在代码中硬编码证书路径，统一走环境变量与 `backend/.env.example` 模板。
 
 ## 与 Android 的关系
 
-PWA 是 Android (Capacitor) 的代码来源，两者共用 `pwa/frontend`，差异通过 `pwa/frontend/src/services/nativeBridge.ts` 抽象，详见 [`android.md`](./android.md)。
+PWA 是 Android (Capacitor) 的代码来源，两者共用 `pwa/` 构建产物（`pwa/dist`），差异通过 `pwa/src/services/nativeBridge.ts` 抽象，详见 [`android.md`](./android.md)。后端 API 契约不变，Android 与 PWA 调用同一组 `backend/` 端点完成可选云端备份。
