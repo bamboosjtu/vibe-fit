@@ -62,14 +62,12 @@ backend/
 │   ├── schema.prisma          # 4 个模型：User/EmailVerificationCode/BackupSnapshot/SyncMeta
 │   └── init.sql               # 幂等建表 SQL（postgres /docker-entrypoint-initdb.d 自动执行 / 运维手动 psql -f）
 ├── tests/backend.test.ts
-├── docs/                       # deployment / development / gcloud
+├── docs/                       # development
 ├── scripts/                    # acceptance.sh / publish-acr.sh / base-images.lock.env
 ├── Dockerfile                  # 5 个 target：base/dependencies/builder/production-dependencies/api-runtime/worker-runtime
 ├── docker-compose.yml          # postgres + backend + worker
 ├── docker-bake.hcl            # 多架构构建（backend/worker 两个镜像）
 ├── build-multiarch.sh          # 委托给 scripts/publish-acr.sh
-├── cloudbuild.publish.yaml     # GCP 镜像发布（backend + worker）
-├── cloudbuild.deploy-gcp.yaml  # GCP 部署
 └── .env.example                # 配置模板
 ```
 
@@ -244,11 +242,7 @@ base (node:24.19.0-alpine)
 
 仓库刻意不为某种部署目标（树莓派、K8s、云主机）维护专用目录，避免出现「特殊打包专用目录或文件」。
 
-### 10.3 GCP（可选）
-
-[cloudbuild.publish.yaml](cloudbuild.publish.yaml) 单独负责镜像发布（同时 push `$BUILD_ID` 与 `$_COMMIT_SHA` tag），[cloudbuild.deploy-gcp.yaml](cloudbuild.deploy-gcp.yaml) 负责部署，发布与部署分离。仅构建 backend + worker 两个镜像。详见 [docs/gcloud.md](docs/gcloud.md)。
-
-## 11. 网关层约束
+### 10.3 网关层约束（详见 [../docs/部署手册.md](../docs/部署手册.md)）
 
 - HTTPS 必须在独立网关层（Caddy / nginx）终结，内部服务走 Docker 网络
 - 网关必须暴露 `/healthz` `/readyz` `/health` `/api/*`
@@ -256,7 +250,7 @@ base (node:24.19.0-alpine)
 - 本地 HTTPS 网关必须显式声明 `https://localhost, https://127.0.0.1` 主机名
 - 生产 `CORS_ORIGIN` 只允许 HTTPS origin，禁止通配符
 
-## 12. 管理后台
+## 11. 管理后台
 
 [routes/admin.ts](src/routes/admin.ts) 提供服务端渲染 HTML 页面：
 
@@ -266,18 +260,17 @@ base (node:24.19.0-alpine)
 
 鉴权：`ADMIN_TOKEN` 为空 → 404；非空 → 通过 `?token=xxx` 或 `Authorization: Bearer xxx` 访问。生产建议叠加网关层 IP 白名单。
 
-## 13. 测试策略
+## 12. 测试策略
 
 - 单测：[tests/backend.test.ts](tests/backend.test.ts) 覆盖 API + Worker（用 `DATA_MODE=mock` `EVENT_PUBLISHER=mock` `AUTH_MODE=mock`）
 - 验收：[scripts/acceptance.sh](scripts/acceptance.sh) 检查容器状态、Backend/Worker 健康、版本接口、镜像隔离（含 Prisma Client 不含 Prisma CLI）
 - 命令门槛：`npm run typecheck` + `npm run build` + `npm test` 必须全绿才允许部署
 
-## 14. 相关文档
+## 13. 相关文档
 
 - [README.md](README.md) — 快速开始
 - [docs/development.md](docs/development.md) — 本地开发环境搭建
-- [docs/deployment.md](docs/deployment.md) — 部署指南
-- [docs/gcloud.md](docs/gcloud.md) — GCP 部署
+- [../docs/部署手册.md](../docs/部署手册.md) — 跨端部署手册
 - [../docs/architecture-decision.md](../docs/architecture-decision.md) — 拆分决策
 - [../pwa/architecture.md](../pwa/architecture.md) — PWA 架构
 - [../android/architecture.md](../android/architecture.md) — Android 架构

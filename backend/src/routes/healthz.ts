@@ -4,7 +4,7 @@ import { repositories } from "../repositories/index.js";
 import { getDatabaseSchemaVersion } from "../db/prisma.js";
 
 export default async function healthzRoutes(fastify: FastifyInstance) {
-  // 给 Cloud Run / 负载均衡 / 简单健康检查使用
+  // 给负载均衡 / 反向代理 / 简单健康检查使用
   fastify.get(
     "/health",
     async (_request: FastifyRequest, reply: FastifyReply) => {

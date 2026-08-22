@@ -124,7 +124,7 @@ npm run open            # 用 Android Studio 打开调试
 | 后端数据库       | PostgreSQL 15                              |
 | Android 容器     | Capacitor 8                                |
 | Android 本地数据 | SQLite（@capacitor-community/sqlite）      |
-| 部署             | Docker Compose（本地） / Cloud Run（可选） |
+| 部署             | Docker Compose（本地） / ACR 镜像（远程） |
 
 ## 📂 目录结构
 
@@ -151,8 +151,7 @@ fit-topic
   │   ├── Dockerfile              # 后端镜像构建（api-runtime + worker-runtime multi-stage）
   │   ├── docker-compose.yml      # 本地后端容器栈（postgres + backend + worker）
   │   ├── docker-bake.hcl         # 后端镜像多架构构建编排（backend + worker）
-  │   ├── cloudbuild.*.yaml       # GCP 可选云端发布与部署
-  │   ├── docs/                   # 后端开发/部署/运维文档
+  │   ├── docs/                   # 后端开发文档
   │   └── scripts/                # 后端镜像发布 + 部署验收
   ├── android/                    # Capacitor 安卓工程
   │   ├── capacitor.config.ts     # webDir → ../pwa/dist
@@ -160,9 +159,9 @@ fit-topic
   │   ├── android/                # 原生工程（cap add android 生成，已 gitignore）
   │   └── docs/
   │       └── android-architecture.md
-  ├── docs/                       # 跨端共享：UI 设计、数据契约、架构决策、部署架构
+  ├── docs/                       # 跨端共享：UI 设计、数据契约、架构决策、部署手册
   │   ├── architecture-decision.md  # 后端独立为单独服务的决策与模块化约束
-  │   ├── deployment-architecture.md # 跨端部署架构（PWA + Backend + 树莓派 + GCP）
+  │   ├── 部署手册.md                # 跨端部署手册（本地开发 / 本地 Docker / 远程树莓派 Docker）
   │   ├── 产品需求文档.md            # 产品需求文档（功能性需求）
   │   ├── platforms/                # 平台说明（pwa.md / android.md）
   │   ├── ui/                        # UI 设计简报
@@ -175,10 +174,8 @@ fit-topic
 | 文档                                                                           | 说明                                                      |
 | ------------------------------------------------------------------------------ | --------------------------------------------------------- |
 | [docs/产品需求文档.md](./docs/产品需求文档.md)                                | 产品需求文档：功能性需求、用户流程、范围与非目标          |
-| [docs/deployment-architecture.md](./docs/deployment-architecture.md)          | 跨端部署架构：PWA + Backend 镜像拆分、GCP 可选           |
+| [docs/部署手册.md](./docs/部署手册.md)                                       | 跨端部署手册：本地开发 / 本地 Docker / 远程树莓派 Docker  |
 | [backend/docs/development.md](./backend/docs/development.md)                  | 后端开发指南：API 契约、数据库设计                        |
-| [backend/docs/deployment.md](./backend/docs/deployment.md)                    | 后端本地 Docker 部署                                      |
-| [backend/docs/gcloud.md](./backend/docs/gcloud.md)                            | GCP 可选云端部署与运维（Cloud Run / Cloud SQL / Pub/Sub） |
 | [docs/architecture-decision.md](./docs/architecture-decision.md)              | 后端独立为单独服务的决策与模块化约束（跨端契约）          |
 | [android/docs/android-architecture.md](./android/docs/android-architecture.md) | Android 离线版架构设计                                    |
 | [AGENTS.md](./AGENTS.md)                                                       | 仓库开发规范（结构、命令、风格、提交约定）                |
@@ -220,9 +217,9 @@ Android（位于 `android/`）：
 - [x] 后端服务骨架 + API 契约（独立为 `backend/`）
 - [x] 数据库（PostgreSQL + Prisma）
 - [x] 邮箱验证码登录（163 SMTP，无密码）
-- [x] 本地事件驱动（HTTP push 到 worker，替代 Pub/Sub）
+- [x] 本地事件驱动（HTTP push 到 worker）
 - [x] 本地 Docker 部署拆分（前端栈 + 后端栈独立）
-- [x] GCP 云端部署方案整理为历史参考（见 backend/docs/gcloud.md）
+- [x] 远程树莓派 Docker 部署手册（ACR 镜像 digest + override compose）
 
 ### Android（进行中）
 

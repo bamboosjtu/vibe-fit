@@ -1,6 +1,6 @@
 # 开发指南
 
-本文件面向 VibeFit 后端开发者，整合系统架构、后端 API 契约与数据库设计。后端作为 PWA（`pwa/`）与 Android（`android/`）的共同云端备份服务，独立部署在 `backend/`。部署相关内容见 [deployment.md](./deployment.md)（本地 Docker）与 [gcloud.md](./gcloud.md)（GCP 可选云端）。Android 端架构见 [android/docs/android-architecture.md](../../android/docs/android-architecture.md)；PWA 前端开发见 [../../docs/platforms/pwa.md](../../docs/platforms/pwa.md)。
+本文件面向 VibeFit 后端开发者，整合系统架构、后端 API 契约与数据库设计。后端作为 PWA（`pwa/`）与 Android（`android/`）的共同云端备份服务，独立部署在 `backend/`。部署相关内容见 [../../docs/部署手册.md](../../docs/部署手册.md)（本地开发环境 / 本地 Docker / 远程树莓派 Docker 三种环境）。Android 端架构见 [android/docs/android-architecture.md](../../android/docs/android-architecture.md)；PWA 前端开发见 [../../docs/platforms/pwa.md](../../docs/platforms/pwa.md)。
 
 ## 1. 系统架构
 
@@ -104,7 +104,7 @@ UI → Zustand store → Dexie (IndexedDB) → 返回 UI     # 全程不依赖�
 - `GET /api/me`：返回当前已通过验证的用户信息。
   - 鉴权：`Authorization: Bearer <token>`
 
-> SMTP 配置（163 邮箱）与部署步骤见 [deployment.md](./deployment.md)。
+> SMTP 配置（163 邮箱）与部署步骤见 [../../docs/部署手册.md](../../docs/部署手册.md)。
 
 #### 同步与备份
 
@@ -144,14 +144,14 @@ UI → Zustand store → Dexie (IndexedDB) → 返回 UI     # 全程不依赖�
     }
     ```
 
-> 历史的 Google 登录链路（已不在主流程使用）见 [gcloud.md](./gcloud.md) 的 OAuth2 章节。
+> 历史的 Google 登录链路已不在主流程使用，当前主流程为邮箱验证码登录。
 
 ## 4. 数据库设计
 
 Vibe-Fit 采用离线优先（Offline-First）的设计模式。
 
 - **前端本地存储**：使用 IndexedDB（通过 Dexie.js 封装）作为主存储，确保在无网络环境下也能正常操作。
-- **后端云端存储**：使用 PostgreSQL（本地 Docker 或 GCP Cloud SQL）作为备份和同步存储。
+- **后端云端存储**：使用 PostgreSQL（本地 Docker 或远程树莓派 Docker）作为备份和同步存储。
 
 ### 4.1 前端数据库（IndexedDB / Dexie.js）
 
@@ -279,7 +279,7 @@ cd backend
 docker compose up -d --build      # http://localhost:8080
 ```
 
-详细部署说明见 [deployment.md](./deployment.md)（后端）与 [../../docs/platforms/pwa.md](../../docs/platforms/pwa.md)（前端）。
+详细部署说明见 [../../docs/部署手册.md](../../docs/部署手册.md)（跨端部署手册）。
 
 ## 6. 测试
 

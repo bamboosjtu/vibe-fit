@@ -119,12 +119,12 @@ npm run typecheck
 npm run build
 ```
 
-Docker 本地栈与部署架构见 [`docs/deployment.md`](./docs/deployment.md)；跨端部署架构见 [`../docs/deployment-architecture.md`](../docs/deployment-architecture.md)。数据库 schema 初始化通过 `prisma/init.sql` 执行：本地由 postgres 容器首次启动自动跑（挂载到 `/docker-entrypoint-initdb.d/`），生产由运维直接 `psql -f prisma/init.sql`；本地开发也可用 `npm run db:push`（`prisma db push`）。
+Docker 本地栈与跨端部署见 [`../docs/部署手册.md`](../docs/部署手册.md)（本地开发环境 / 本地 Docker / 远程树莓派 Docker 三种环境）。数据库 schema 初始化通过 `prisma/init.sql` 执行：本地由 postgres 容器首次启动自动跑（挂载到 `/docker-entrypoint-initdb.d/`），生产由运维直接 `psql -f prisma/init.sql`；本地开发也可用 `npm run db:push`（`prisma db push`）。
 
 ## 关键约束
 
 - **平台无关**：API 不区分客户端类型；`deviceId` 仅作元数据，不影响业务行为
 - **数据契约唯一**：`BackupPayloadSchema` 是备份 payload 的唯一权威，前后端同步更新
 - **全量快照**：每次推送都是全量覆盖，不做增量同步、不做字段级合并
-- **事件可插拔**：当前 `LocalHttpEventPublisher`（HTTP push 模拟 Pub/Sub wire format），未来可替换为 GCP Pub/Sub
+- **事件可插拔**：当前 `LocalHttpEventPublisher`（HTTP push 模拟 Pub/Sub wire format），未来可替换为标准消息中间件
 - **Schema 走脚本**：MVP 期间通过 `prisma/init.sql` 初始化，不提供自动化 migrate 服务，运行时镜像不含 psql、不含 Prisma CLI

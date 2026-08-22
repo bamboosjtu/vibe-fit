@@ -7,7 +7,7 @@ import { env } from "../config/env.js";
  *
  * worker 暴露的 /pubsub/backups 端点接受与 Pub/Sub push 相同的 body 结构，
  * 因此本发布器把事件编码为 base64 后包装成 Pub/Sub push 格式发送。
- * 全部跑在 Docker 网络内，无需 Redis / GCP Pub/Sub。
+ * 全部跑在 Docker 网络内，无需外部消息中间件。
  */
 export class LocalHttpEventPublisher implements EventPublisher {
   async publishBackupCreated(event: BackupCreatedEvent): Promise<void> {

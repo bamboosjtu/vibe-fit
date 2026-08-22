@@ -124,7 +124,7 @@ idle ──开始训练──▶ running ──暂停──▶ paused ──继�
 | 后台计时 | 标签页隐藏时 `setInterval` 可能被节流，回前台用时间戳校准 | 通过原生能力保持计时，回前台校准 `runningSince` |
 | Safe Area | `env(safe-area-inset-*)` | 同上，Capacitor 注入 insets |
 | 文件路径 | `/assets/exercises/<id>.png` 走静态托管 | 同 PWA 路径，由 Capacitor WebView 解析 |
-| 部署 | 本地 Docker / GCP，见 [`docs/platforms/pwa.md`](../../platforms/pwa.md) | 打包 APK，见 [`docs/platforms/android.md`](../../platforms/android.md) |
+| 部署 | 本地 Docker / 远程树莓派 Docker，见 [`docs/部署手册.md`](../../部署手册.md) | 打包 APK，见 [`docs/platforms/android.md`](../../platforms/android.md) |
 
 两者共用同一份 `pwa` 代码，差异通过 `nativeBridge.ts` 抽象，UI 层不写平台分支。
 

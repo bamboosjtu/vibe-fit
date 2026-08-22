@@ -13,12 +13,12 @@ VibeFit 是一个健身应用，仓库产出四个顶层目录：
   - 路由在 `src/routes/`，仓储在 `src/repositories/`，事件在 `src/events/`，Prisma 在 `prisma/`。
   - `Dockerfile` 多阶段构建，产出 `api-runtime` 与 `worker-runtime` 两个独立 target；运行时镜像不含 psql、不含 Prisma CLI。
   - `docker-compose.yml` 编排 postgres + backend + worker；`docker-bake.hcl` 多架构构建 backend/worker 两个镜像。前后端独立部署，不共用 compose。
-  - `cloudbuild.publish.yaml` 与 `cloudbuild.deploy-gcp.yaml` 为 GCP 可选方案。
   - 数据库 schema 初始化走 `prisma/init.sql`：本地由 postgres 容器 `/docker-entrypoint-initdb.d/` 自动执行，生产由运维直接 `psql -f prisma/init.sql`。不提供自动化 migrate 服务。
-  - `docs/` 含后端开发/部署/运维文档（development.md / deployment.md / gcloud.md）。
+  - `docs/` 含后端开发文档（development.md）；跨端部署见 `docs/部署手册.md`。
 - `android/`：Android 离线应用，基于 Capacitor 8 封装 `pwa/` 构建产物，增加本地 SQLite 与原生能力。原生工程位于 `android/android/`（由 `cap add android` 生成，已 gitignore）。见 `android/docs/android-architecture.md`。
-- `docs/`：跨端共享文档（UI 设计、平台说明、数据契约、架构决策）。
+- `docs/`：跨端共享文档（UI 设计、平台说明、数据契约、架构决策、部署手册）。
   - `architecture-decision.md` 记录后端独立为单独服务的决策与模块化约束（前后端、Web/Android 共享的唯一 zod 数据契约）。
+  - `部署手册.md` 跨端部署手册，按本地开发环境 / 本地 Docker / 远程树莓派 Docker 三种环境组织。
 - 共享数据层骨架位于 `pwa/src/db/`（`repository.ts`、`sqliteSchema.ts`）与 `pwa/src/services/nativeBridge.ts`。
 
 ## 编码风格与命名约定

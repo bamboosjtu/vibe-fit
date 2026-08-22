@@ -1,6 +1,6 @@
 # PWA 平台说明
 
-VibeFit 的 Web/PWA 构建产物来自 `pwa/`（纯前端，离线优先），通过本地 Docker 部署。后端独立部署在 `backend/`，作为 PWA 与 Android 的共同云端备份服务，详见 [`../../backend/docs/deployment.md`](../../backend/docs/deployment.md)（本地）与 [`../../docs/deployment-architecture.md`](../../docs/deployment-architecture.md)（跨端部署架构）。
+VibeFit 的 Web/PWA 构建产物来自 `pwa/`（纯前端，离线优先），通过本地 Docker 或远程树莓派 Docker 部署。后端独立部署在 `backend/`，作为 PWA 与 Android 的共同云端备份服务，详见 [`../部署手册.md`](../部署手册.md)（本地开发环境 / 本地 Docker / 远程树莓派 Docker 三种环境）。
 
 ## 部署
 
