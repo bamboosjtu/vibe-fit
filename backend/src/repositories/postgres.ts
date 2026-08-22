@@ -7,6 +7,7 @@ import type {
   Repositories,
   UserRecord,
   UserRepository,
+  UserWithStats,
 } from "./types.js";
 
 function toUserRecord(user: {
@@ -58,6 +59,60 @@ class PostgresUserRepository implements UserRepository {
     });
 
     return toUserRecord(user);
+  }
+
+  async listAll(): Promise<UserWithStats[]> {
+    const users = await prisma.user.findMany({
+      include: {
+        _count: { select: { backupSnapshots: true } },
+        backupSnapshots: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { createdAt: true },
+        },
+        syncMeta: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return users.map((u) => ({
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      avatarUrl: u.avatarUrl,
+      createdAt: u.createdAt.toISOString(),
+      backupCount: u._count.backupSnapshots,
+      lastBackupAt: u.backupSnapshots[0]?.createdAt.toISOString() ?? null,
+      lastSyncedAt: u.syncMeta?.lastSyncedAt.toISOString() ?? null,
+    }));
+  }
+
+  async findStatsById(id: string): Promise<UserWithStats | null> {
+    const u = await prisma.user.findUnique({
+      where: { id },
+      include: {
+        _count: { select: { backupSnapshots: true } },
+        backupSnapshots: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { createdAt: true },
+        },
+        syncMeta: true,
+      },
+    });
+
+    if (!u) return null;
+
+    return {
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      avatarUrl: u.avatarUrl,
+      createdAt: u.createdAt.toISOString(),
+      backupCount: u._count.backupSnapshots,
+      lastBackupAt: u.backupSnapshots[0]?.createdAt.toISOString() ?? null,
+      lastSyncedAt: u.syncMeta?.lastSyncedAt.toISOString() ?? null,
+    };
   }
 }
 
@@ -161,6 +216,37 @@ class PostgresBackupRepository implements BackupRepository {
       orderBy: {
         createdAt: "desc",
       },
+    });
+
+    if (!backup) return null;
+
+    return {
+      id: backup.id,
+      userId: backup.userId,
+      deviceId: backup.deviceId,
+      payload: backup.payload,
+      createdAt: backup.createdAt.toISOString(),
+    };
+  }
+
+  async listByUserId(userId: string): Promise<BackupRecord[]> {
+    const backups = await prisma.backupSnapshot.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return backups.map((b) => ({
+      id: b.id,
+      userId: b.userId,
+      deviceId: b.deviceId,
+      payload: b.payload,
+      createdAt: b.createdAt.toISOString(),
+    }));
+  }
+
+  async findById(id: string): Promise<BackupRecord | null> {
+    const backup = await prisma.backupSnapshot.findUnique({
+      where: { id },
     });
 
     if (!backup) return null;

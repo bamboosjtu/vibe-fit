@@ -163,7 +163,7 @@ cloud-sql-proxy $env:INSTANCE_CONNECTION_NAME --port 5433
 # 另开一个终端：
 cd backend
 $env:DATABASE_URL="postgresql://vibefit_app:你的强密码@127.0.0.1:5433/vibefit"
-npx prisma migrate deploy
+npx prisma db push
 ```
 
 ### 步骤6：创建后端服务账号

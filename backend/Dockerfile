@@ -42,27 +42,22 @@ RUN npm ci --omit=dev --omit=optional --ignore-scripts && npm cache clean --forc
 RUN test -d node_modules/@prisma/client && ! test -f node_modules/.bin/prisma
 
 # ─── api-runtime ───────────────────────────────────────────────────
-# Backend API 运行镜像：编译产物 + 生产依赖 + Prisma Client 运行时 + psql 迁移工具
+# Backend API 运行镜像：编译产物 + 生产依赖 + Prisma Client 运行时。
+# 数据库 schema 初始化由运维直接连接 PostgreSQL 执行 prisma/init.sql，
+# 镜像内不内置 psql 或 migrate 入口。
 FROM base AS api-runtime
 ENV NODE_ENV=production
-# 安装 postgresql-client 用于 entrypoint 脚本执行 SQL 初始化 schema
-RUN apk add --no-cache postgresql-client
 # 生产依赖
 COPY --from=production-dependencies /app/node_modules ./node_modules
 # Prisma Client 运行时（由 builder 阶段 prisma generate 生成）
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 # 编译产物
 COPY --from=builder /app/dist ./dist
-# Prisma schema 与迁移 SQL（entrypoint 脚本用 psql 执行）
-COPY --from=builder /app/prisma ./prisma
 # 元数据
 COPY package.json ./
-# entrypoint 脚本
-COPY docker-entrypoint.sh ./
-RUN chmod +x docker-entrypoint.sh
 EXPOSE 8080
 USER node
-ENTRYPOINT ["./docker-entrypoint.sh"]
+CMD ["node", "dist/server.js"]
 
 # ─── worker-runtime ────────────────────────────────────────────────
 # Worker 运行镜像：消费 backup.created，并通过 Prisma 执行快照保留策略。

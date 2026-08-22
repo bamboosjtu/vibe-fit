@@ -5,12 +5,14 @@
 #
 # 服务：
 #   postgres  : PostgreSQL 15
-#   migrate   : 一次性 schema 迁移（psql 执行 prisma/migrations）
 #   backend   : Fastify API（:8080）
 #   worker    : 备份事件 worker（接收 HTTP push）
 #
+# 数据库 schema 初始化走 postgres 镜像 /docker-entrypoint-initdb.d/ 自动机制：
+#   prisma/init.sql 挂载为只读 init 脚本，仅在数据卷首次创建时执行，重启不会重复跑。
+# 不再提供自动化 migrate 服务；生产首次部署由运维直接 psql -f prisma/init.sql。
+#
 # 前端（H5）单独部署在 pwa/，需要联调时手动启动 pwa/docker-compose.yml。
-# 树莓派一体化部署见 backend/deploy/rpi/compose.yaml。
 #
 # 访问：
 #   backend API: http://localhost:8080
@@ -28,24 +30,12 @@ services:
       - "5432:5432"
     volumes:
       - vibe_fit_pg_data:/var/lib/postgresql/data
+      - ./prisma/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U vibefit -d vibefit_dev"]
       interval: 5s
       timeout: 5s
       retries: 10
-
-  migrate:
-    build:
-      context: .
-      target: api-runtime
-    container_name: vibefit-migrate
-    command: ["migrate"]
-    environment:
-      DATABASE_URL: postgres://vibefit:vibefit_dev_password@postgres:5432/vibefit_dev
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: "no"
 
   backend:
     build:
@@ -67,8 +57,8 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      migrate:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
       worker:
         condition: service_healthy
     healthcheck:
@@ -97,8 +87,8 @@ services:
       BACKUP_MIN_SNAPSHOTS: "10"
       LOG_PRETTY: "false"
     depends_on:
-      migrate:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 10s

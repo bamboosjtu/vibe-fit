@@ -6,6 +6,7 @@ import errorHandlerPlugin from "./plugins/errorHandler.js";
 import healthzRoutes from "./routes/healthz.js";
 import syncRoutes from "./routes/sync.js";
 import authRoutes from "./routes/auth.js";
+import adminRoutes from "./routes/admin.js";
 
 declare module "fastify" {
   export interface FastifyInstance {
@@ -75,6 +76,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await fastify.register(healthzRoutes);
   await fastify.register(authRoutes);
   await fastify.register(syncRoutes);
+  await fastify.register(adminRoutes);
 
   return fastify;
 }

@@ -8,6 +8,7 @@ import type {
   Repositories,
   UserRecord,
   UserRepository,
+  UserWithStats,
 } from "./types.js";
 
 const mockBackupSnapshots: BackupRecord[] = [];
@@ -57,11 +58,45 @@ class MockUserRepository implements UserRepository {
       email: input.email,
       name: input.name ?? null,
       avatarUrl: input.avatarUrl ?? null,
+      createdAt: new Date(),
     };
 
     mockDb.users.push(user);
 
     return toUserRecord(user);
+  }
+
+  async listAll(): Promise<UserWithStats[]> {
+    return mockDb.users.map((u) => this.toStats(u));
+  }
+
+  async findStatsById(id: string): Promise<UserWithStats | null> {
+    const user = mockDb.users.find((u) => u.id === id);
+    return user ? this.toStats(user) : null;
+  }
+
+  private toStats(u: {
+    id: string;
+    email: string;
+    name?: string | null;
+    avatarUrl?: string | null;
+    createdAt?: Date;
+  }): UserWithStats {
+    const userBackups = mockBackupSnapshots.filter((b) => b.userId === u.id);
+    const lastBackup = userBackups
+      .slice()
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+    const syncMeta = mockDb.syncMeta.get(u.id);
+    return {
+      id: u.id,
+      email: u.email,
+      name: u.name ?? null,
+      avatarUrl: u.avatarUrl ?? null,
+      createdAt: u.createdAt ? u.createdAt.toISOString() : null,
+      backupCount: userBackups.length,
+      lastBackupAt: lastBackup?.createdAt ?? null,
+      lastSyncedAt: syncMeta?.lastSyncedAt.toISOString() ?? null,
+    };
   }
 }
 
@@ -136,6 +171,18 @@ class MockBackupRepository implements BackupRepository {
         .filter((backup) => backup.userId === userId)
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null
     );
+  }
+
+  async listByUserId(userId: string): Promise<BackupRecord[]> {
+    return mockBackupSnapshots
+      .filter((b) => b.userId === userId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map((b) => ({ ...b }));
+  }
+
+  async findById(id: string): Promise<BackupRecord | null> {
+    const backup = mockBackupSnapshots.find((b) => b.id === id);
+    return backup ? { ...backup } : null;
   }
 
   async pruneExpiredByUserId(

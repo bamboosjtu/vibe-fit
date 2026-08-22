@@ -11,11 +11,11 @@ VibeFit 是一个健身应用，仓库产出四个顶层目录：
   - 不依赖 backend 容器；nginx 反代 `/api/*` 到 upstream `backend`，若未启动 backend 仅云端备份失败，本地功能不受影响。
 - `backend/`：Fastify + TypeScript 后端 API，作为 PWA 与 Android 的共同云端备份服务。平台无关，无 `if android/web` 分支。
   - 路由在 `src/routes/`，仓储在 `src/repositories/`，事件在 `src/events/`，Prisma 在 `prisma/`。
-  - `Dockerfile` 多阶段构建，产出 `api-runtime` 与 `worker-runtime` 两个独立 target。
-  - `docker-compose.yml` 编排 postgres + migrate + backend + worker；`docker-bake.hcl` 多架构构建 backend/worker/maintenance/postgres/caddy 镜像。
+  - `Dockerfile` 多阶段构建，产出 `api-runtime` 与 `worker-runtime` 两个独立 target；运行时镜像不含 psql、不含 Prisma CLI。
+  - `docker-compose.yml` 编排 postgres + backend + worker；`docker-bake.hcl` 多架构构建 backend/worker 两个镜像。前后端独立部署，不共用 compose。
   - `cloudbuild.publish.yaml` 与 `cloudbuild.deploy-gcp.yaml` 为 GCP 可选方案。
-  - `deploy/rpi/` 是树莓派一体化部署套件（compose/scripts/systemd/maintenance），跨 backend + frontend 编排（frontend 镜像通过 `FRONTEND_IMAGE` 引用）。
-  - `docs/` 含后端开发/部署/运维文档（development.md / deployment.md / gcloud.md / raspberry-pi.md / rpi-30-day-validation.md / 树莓派部署计划.md）。
+  - 数据库 schema 初始化走 `prisma/init.sql`：本地由 postgres 容器 `/docker-entrypoint-initdb.d/` 自动执行，生产由运维直接 `psql -f prisma/init.sql`。不提供自动化 migrate 服务。
+  - `docs/` 含后端开发/部署/运维文档（development.md / deployment.md / gcloud.md）。
 - `android/`：Android 离线应用，基于 Capacitor 8 封装 `pwa/` 构建产物，增加本地 SQLite 与原生能力。原生工程位于 `android/android/`（由 `cap add android` 生成，已 gitignore）。见 `android/docs/android-architecture.md`。
 - `docs/`：跨端共享文档（UI 设计、平台说明、数据契约、架构决策）。
   - `architecture-decision.md` 记录后端独立为单独服务的决策与模块化约束（前后端、Web/Android 共享的唯一 zod 数据契约）。

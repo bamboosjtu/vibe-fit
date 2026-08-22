@@ -235,7 +235,7 @@ Vibe-Fit 采用离线优先（Offline-First）的设计模式。
 - `lastSyncedAt` (DateTime)
 - `lastSyncStatus` (String)
 
-> Prisma schema 定义在 `backend/prisma/schema.prisma`，迁移文件在 `backend/prisma/migrations/`。
+> Prisma schema 定义在 `backend/prisma/schema.prisma`，MVP 期间通过 `prisma/init.sql` 初始化数据库，本地开发用 `npm run db:push`（`prisma db push`）。正式发布后改为 `prisma migrate` 建立迁移基线。
 
 ### 4.3 同步策略
 
@@ -264,7 +264,7 @@ npm run dev          # 启动后端 API watcher
 npm run dev:worker   # 启动 worker watcher
 npm run build        # 构建
 npm run typecheck    # 类型检查
-npm run db:migrate   # Prisma 开发迁移
+npm run db:push      # Prisma db push（MVP 期间直接推 schema）
 ```
 
 本地容器栈已拆分为前后端独立 compose（见下文）。前端不依赖 backend 容器即可离线运行；联调云端备份时分别启动两端。
@@ -274,7 +274,7 @@ npm run db:migrate   # Prisma 开发迁移
 cd pwa
 docker compose up -d --build      # http://localhost:8081
 
-# 后端容器栈（postgres + migrate + backend + worker）
+# 后端容器栈（postgres + backend + worker；schema 由 postgres 首次启动自动初始化）
 cd backend
 docker compose up -d --build      # http://localhost:8080
 ```

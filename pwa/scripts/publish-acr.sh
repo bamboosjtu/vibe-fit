@@ -10,8 +10,9 @@
 # 产出镜像（linux/amd64 + linux/arm64）：
 #   - vibefit-frontend
 #
-# 追加 FRONTEND_IMAGE 到 backend/deploy/rpi/images.lock.env（若已由后端脚本初始化）。
-# 若该锁文件不存在，则创建仅含 FRONTEND_IMAGE 的临时锁，提示需先发布后端镜像。
+# 写入 pwa/scripts/images.lock.env（仅 FRONTEND_IMAGE + RELEASE_VERSION + GIT_REVISION）。
+# 后端镜像由 backend/scripts/publish-acr.sh 单独发布并写入 backend/scripts/images.lock.env，
+# 前后端独立部署、独立锁文件。
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -82,12 +83,7 @@ VERSION="$release_version" \
 GIT_REVISION="$git_revision" \
 docker buildx bake --file docker-bake.hcl --push
 
-# 镜像锁文件归 backend/deploy/rpi/images.lock.env（rpi compose 统一加载）。
-# 这里只追加/更新 FRONTEND_IMAGE 行。
-backend_lock="../backend/deploy/rpi/images.lock.env"
-tmp_lock=$(mktemp)
-trap 'rm -f "$tmp_lock"' EXIT HUP INT TERM
-
+# 锁文件位置：pwa/scripts/images.lock.env（前端独立锁，与后端互不依赖）
 image="$ACR_REGISTRY/$ACR_NAMESPACE/vibefit-frontend:$release_tag"
 inspection=$(docker buildx imagetools inspect "$image")
 echo "$inspection" | grep -q "linux/amd64" || {
@@ -105,17 +101,14 @@ echo "$digest" | grep -Eq '^sha256:[0-9a-f]{64}$' || {
   echo "Cannot resolve an immutable digest for $image: $digest" >&2
   exit 65
 }
-frontend_line="FRONTEND_IMAGE=$ACR_REGISTRY/$ACR_NAMESPACE/vibefit-frontend@$digest"
 
-if [ -r "$backend_lock" ]; then
-  # 移除已有 FRONTEND_IMAGE 行（若存在），再追加新行。
-  grep -v '^FRONTEND_IMAGE=' "$backend_lock" > "$tmp_lock" || true
-  echo "$frontend_line" >> "$tmp_lock"
-  mv "$tmp_lock" "$backend_lock"
-  trap - EXIT HUP INT TERM
-  echo "Appended FRONTEND_IMAGE to $backend_lock"
-else
-  echo "$backend_lock not found. Run backend/scripts/publish-acr.sh first." >&2
-  echo "FRONTEND_IMAGE line: $frontend_line" >&2
-  exit 65
-fi
+lock_file=$(mktemp scripts/images.lock.env.tmp.XXXXXX)
+trap 'rm -f "$lock_file"' EXIT HUP INT TERM
+{
+  echo "RELEASE_VERSION=$release_version"
+  echo "GIT_REVISION=$git_revision"
+  echo "FRONTEND_IMAGE=$ACR_REGISTRY/$ACR_NAMESPACE/vibefit-frontend@$digest"
+} > "$lock_file"
+mv "$lock_file" scripts/images.lock.env
+trap - EXIT HUP INT TERM
+echo "Published frontend image for $release_tag and wrote scripts/images.lock.env"

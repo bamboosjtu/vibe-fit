@@ -143,17 +143,16 @@ fit-topic
   │   └── scripts/                # 前端镜像发布 + 部署验收
   ├── backend/                    # Fastify + Prisma 后端（PWA 与 Android 共同云端备份服务）
   │   ├── src/
-  │   │   ├── routes/             # API 路由（auth/sync/healthz）
+  │   │   ├── routes/             # API 路由（auth/sync/healthz/admin）
   │   │   ├── repositories/       # 数据仓储（postgres/mock）
   │   │   └── events/             # 事件发布器（local/mock）
-  │   ├── prisma/                 # Prisma schema + 迁移 SQL
+  │   ├── prisma/                 # Prisma schema + init.sql（幂等建表 SQL）
   │   ├── tests/
   │   ├── Dockerfile              # 后端镜像构建（api-runtime + worker-runtime multi-stage）
-  │   ├── docker-compose.yml      # 本地后端容器栈（postgres + migrate + backend + worker）
-  │   ├── docker-bake.hcl         # 后端镜像多架构构建编排
+  │   ├── docker-compose.yml      # 本地后端容器栈（postgres + backend + worker）
+  │   ├── docker-bake.hcl         # 后端镜像多架构构建编排（backend + worker）
   │   ├── cloudbuild.*.yaml       # GCP 可选云端发布与部署
   │   ├── docs/                   # 后端开发/部署/运维文档
-  │   ├── deploy/rpi/             # 树莓派一体化部署套件（compose/scripts/systemd/maintenance）
   │   └── scripts/                # 后端镜像发布 + 部署验收
   ├── android/                    # Capacitor 安卓工程
   │   ├── capacitor.config.ts     # webDir → ../pwa/dist
@@ -161,8 +160,10 @@ fit-topic
   │   ├── android/                # 原生工程（cap add android 生成，已 gitignore）
   │   └── docs/
   │       └── android-architecture.md
-  ├── docs/                       # 跨端共享：UI 设计、数据契约、架构决策
+  ├── docs/                       # 跨端共享：UI 设计、数据契约、架构决策、部署架构
   │   ├── architecture-decision.md  # 后端独立为单独服务的决策与模块化约束
+  │   ├── deployment-architecture.md # 跨端部署架构（PWA + Backend + 树莓派 + GCP）
+  │   ├── 产品需求文档.md            # 产品需求文档（功能性需求）
   │   ├── platforms/                # 平台说明（pwa.md / android.md）
   │   ├── ui/                        # UI 设计简报
   │   └── 部署架构图.png
@@ -174,11 +175,10 @@ fit-topic
 | 文档                                                                           | 说明                                                      |
 | ------------------------------------------------------------------------------ | --------------------------------------------------------- |
 | [docs/产品需求文档.md](./docs/产品需求文档.md)                                | 产品需求文档：功能性需求、用户流程、范围与非目标          |
+| [docs/deployment-architecture.md](./docs/deployment-architecture.md)          | 跨端部署架构：PWA + Backend 镜像拆分、GCP 可选           |
 | [backend/docs/development.md](./backend/docs/development.md)                  | 后端开发指南：API 契约、数据库设计                        |
 | [backend/docs/deployment.md](./backend/docs/deployment.md)                    | 后端本地 Docker 部署                                      |
 | [backend/docs/gcloud.md](./backend/docs/gcloud.md)                            | GCP 可选云端部署与运维（Cloud Run / Cloud SQL / Pub/Sub） |
-| [backend/docs/raspberry-pi.md](./backend/docs/raspberry-pi.md)                | 树莓派一体化部署                                          |
-| [backend/deploy/rpi/README.md](./backend/deploy/rpi/README.md)                | 树莓派部署套件（compose/scripts/systemd/maintenance）    |
 | [docs/architecture-decision.md](./docs/architecture-decision.md)              | 后端独立为单独服务的决策与模块化约束（跨端契约）          |
 | [android/docs/android-architecture.md](./android/docs/android-architecture.md) | Android 离线版架构设计                                    |
 | [AGENTS.md](./AGENTS.md)                                                       | 仓库开发规范（结构、命令、风格、提交约定）                |
@@ -201,7 +201,7 @@ Backend（位于 `backend/`）：
 - `cd backend && npm run dev:worker`：启动后端 worker watcher。
 - `cd backend && npm run build`：构建后端。
 - `cd backend && npm run typecheck`：后端类型检查。
-- `cd backend && npm run db:migrate`：Prisma 开发迁移。
+- `cd backend && npm run db:push`：Prisma db push（MVP 期间直接推 schema）。
 - `cd backend && docker compose up -d --build`：后端本地 Docker 部署。
 - `cd backend && docker buildx bake --file docker-bake.hcl --push`：多架构镜像构建与发布（需 ACR 配置）。
 

@@ -5,6 +5,13 @@ export interface UserRecord {
   avatarUrl?: string | null;
 }
 
+export interface UserWithStats extends UserRecord {
+  createdAt: string | null;
+  backupCount: number;
+  lastBackupAt: string | null;
+  lastSyncedAt: string | null;
+}
+
 export interface UserRepository {
   findByEmail(email: string): Promise<UserRecord | null>;
   findById(id: string): Promise<UserRecord | null>;
@@ -14,6 +21,10 @@ export interface UserRepository {
     name?: string | null;
     avatarUrl?: string | null;
   }): Promise<UserRecord>;
+
+  listAll(): Promise<UserWithStats[]>;
+
+  findStatsById(id: string): Promise<UserWithStats | null>;
 }
 
 export interface EmailVerificationCodeRecord {
@@ -53,6 +64,10 @@ export interface BackupRepository {
   }): Promise<BackupRecord>;
 
   getLatestByUserId(userId: string): Promise<BackupRecord | null>;
+
+  listByUserId(userId: string): Promise<BackupRecord[]>;
+
+  findById(id: string): Promise<BackupRecord | null>;
 
   pruneExpiredByUserId(
     userId: string,

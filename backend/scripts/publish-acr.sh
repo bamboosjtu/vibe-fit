@@ -10,28 +10,23 @@
 # 产出镜像（linux/amd64 + linux/arm64）：
 #   - vibefit-backend
 #   - vibefit-worker
-#   - vibefit-maintenance
-#   - vibefit-postgres
-#   - vibefit-caddy
 #
-# 写入 backend/deploy/rpi/images.lock.env（仅后端 5 个镜像 + RELEASE_VERSION + GIT_REVISION）。
-# frontend 镜像由 pwa/scripts/publish-acr.sh 单独发布并追加 FRONTEND_IMAGE 到同一锁文件。
-#
-# 锁文件被 backend/deploy/rpi/compose.yaml 通过 images.lock.env 加载。
+# 写入 backend/scripts/images.lock.env（仅后端 2 个镜像 + RELEASE_VERSION + GIT_REVISION），
+# 供生产部署通过 image digest 引用。前端镜像由 pwa/scripts/publish-acr.sh 单独发布。
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 BACKEND_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 cd "$BACKEND_DIR"
 
-base_image_lock=deploy/rpi/base-images.lock.env
+base_image_lock=scripts/base-images.lock.env
 [ -r "$base_image_lock" ] || {
   echo "Missing base image lock: $base_image_lock" >&2
   exit 66
 }
 # Values are repository-controlled immutable image references without whitespace.
 . "./$base_image_lock"
-export NODE_IMAGE POSTGRES_IMAGE CADDY_IMAGE
+export NODE_IMAGE
 
 required() {
   name=$1
@@ -89,9 +84,9 @@ VERSION="$release_version" \
 GIT_REVISION="$git_revision" \
 docker buildx bake --file docker-bake.hcl --push
 
-# 锁文件位置：backend/deploy/rpi/images.lock.env
-# frontend 镜像由 pwa/scripts/publish-acr.sh 追加到同一文件，故这里只写后端 5 个 + 元数据。
-lock_file=$(mktemp deploy/rpi/images.lock.env.tmp.XXXXXX)
+# 锁文件位置：backend/scripts/images.lock.env
+# 前端镜像由 pwa/scripts/publish-acr.sh 单独写入 pwa/scripts/images.lock.env。
+lock_file=$(mktemp scripts/images.lock.env.tmp.XXXXXX)
 trap 'rm -f "$lock_file"' EXIT HUP INT TERM
 {
   echo "RELEASE_VERSION=$release_version"
@@ -100,10 +95,7 @@ trap 'rm -f "$lock_file"' EXIT HUP INT TERM
 
 for pair in \
   "BACKEND_IMAGE vibefit-backend" \
-  "WORKER_IMAGE vibefit-worker" \
-  "MAINTENANCE_IMAGE vibefit-maintenance" \
-  "POSTGRES_IMAGE vibefit-postgres" \
-  "CADDY_IMAGE vibefit-caddy"
+  "WORKER_IMAGE vibefit-worker"
 do
   variable_name=${pair%% *}
   repository_name=${pair#* }
@@ -127,7 +119,6 @@ do
   echo "$variable_name=$ACR_REGISTRY/$ACR_NAMESPACE/$repository_name@$digest" >> "$lock_file"
 done
 
-mv "$lock_file" deploy/rpi/images.lock.env
+mv "$lock_file" scripts/images.lock.env
 trap - EXIT HUP INT TERM
-echo "Published backend images for $release_tag and wrote deploy/rpi/images.lock.env"
-echo "Next: run pwa/scripts/publish-acr.sh to append FRONTEND_IMAGE to the same lock file."
+echo "Published backend images for $release_tag and wrote scripts/images.lock.env"

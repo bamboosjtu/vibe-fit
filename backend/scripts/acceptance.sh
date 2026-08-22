@@ -5,11 +5,14 @@
 #   ./scripts/acceptance.sh
 #
 # 检查项：
-#   1. 长期服务状态（postgres/backend/worker 运行）与一次性迁移成功
+#   1. 长期服务状态（postgres/backend/worker 运行）
 #   2. 后端健康检查
 #   3. 后端版本信息
 #   4. Worker 运行状态
 #   5. 运行镜像验证（backend/worker 含 Prisma Client 且不含 Prisma CLI）
+#
+# 数据库 schema 初始化已由 postgres 镜像 /docker-entrypoint-initdb.d/ 自动完成
+# （本地开发）或由运维手动执行 prisma/init.sql（生产）。
 #
 # 前端验收由 pwa/scripts/acceptance.sh 负责。
 
@@ -36,12 +39,6 @@ for svc in vibefit-postgres vibefit-backend vibefit-worker; do
     fail "$svc: $status"
   fi
 done
-migrate_status=$(docker inspect -f '{{.State.Status}}:{{.State.ExitCode}}' vibefit-migrate 2>/dev/null || echo "missing")
-if [ "$migrate_status" = "exited:0" ]; then
-  ok "vibefit-migrate: completed successfully"
-else
-  fail "vibefit-migrate: $migrate_status"
-fi
 echo ""
 
 # ── 2. 后端健康检查 ─────────────────────────────────────
@@ -100,22 +97,12 @@ else
   fail "Worker 镜像含 Prisma CLI（应隔离）"
 fi
 
-# Backend 镜像不应包含 prisma CLI（使用 psql 脚本初始化 schema）
+# Backend 镜像不应包含 prisma CLI（schema 由运维直接执行 init.sql 初始化）
 backend_cli=$(docker exec vibefit-backend sh -c "test -f node_modules/.bin/prisma && echo yes || echo no" 2>/dev/null || echo "no")
 if [ "$backend_cli" = "no" ]; then
-  ok "Backend 镜像不含 Prisma CLI（使用 psql）"
+  ok "Backend 镜像不含 Prisma CLI"
 else
-  fail "Backend 镜像含 Prisma CLI（应使用 psql）"
-fi
-echo ""
-
-# ── 6. 独立迁移服务日志 ────────────────────────────────
-echo "6. 独立数据库迁移"
-migrate_logs=$(docker logs vibefit-migrate 2>&1 || echo "")
-if echo "$migrate_logs" | grep -q "already applied\|applied successfully\|All database migrations completed"; then
-  ok "独立 migrate 服务已执行"
-else
-  fail "migrate 日志未找到: $migrate_logs"
+  fail "Backend 镜像含 Prisma CLI（应隔离）"
 fi
 echo ""
 

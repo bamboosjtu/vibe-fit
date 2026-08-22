@@ -133,6 +133,9 @@ const JWT_SECRET = isProduction
   ? getEnv("JWT_SECRET")
   : getEnv("JWT_SECRET", "dev-only-secret");
 
+// 管理后台令牌：为空则禁用 admin 路由（返回 404）
+const ADMIN_TOKEN = getOptionalEnv("ADMIN_TOKEN", "");
+
 if (
   isProduction
   && (
@@ -172,6 +175,7 @@ export const env = {
   VERIFY_CODE_LENGTH,
 
   JWT_SECRET,
+  ADMIN_TOKEN,
 
   APP_VERSION: getOptionalEnv("APP_VERSION", "1.1.0"),
   GIT_REVISION: getOptionalEnv("GIT_REVISION", "unknown"),

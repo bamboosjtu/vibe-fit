@@ -1,12 +1,12 @@
 # PWA 平台说明
 
-VibeFit 的 Web/PWA 构建产物来自 `pwa/`（纯前端，离线优先），通过本地 Docker 或树莓派生产部署。后端独立部署在 `backend/`，作为 PWA 与 Android 的共同云端备份服务，详见 [`../../backend/docs/deployment.md`](../../backend/docs/deployment.md)（本地）与 [`../../backend/docs/raspberry-pi.md`](../../backend/docs/raspberry-pi.md)（生产）。
+VibeFit 的 Web/PWA 构建产物来自 `pwa/`（纯前端，离线优先），通过本地 Docker 部署。后端独立部署在 `backend/`，作为 PWA 与 Android 的共同云端备份服务，详见 [`../../backend/docs/deployment.md`](../../backend/docs/deployment.md)（本地）与 [`../../docs/deployment-architecture.md`](../../docs/deployment-architecture.md)（跨端部署架构）。
 
 ## 部署
 
 - 本地前端栈：`pwa/docker-compose.yml` 仅拉起 `frontend`（nginx + 构建产物 + SW），`:8081`，**不依赖 backend 容器**；
-- 本地后端联调：另起 `backend/docker-compose.yml`（postgres + migrate + backend + worker，`:8080`）；
-- 生产：静态资源由 `vibefit-frontend` 容器或 CDN 托管，后端 Fastify 提供 `/api` 与可选云端备份；树莓派一体化部署由 `backend/deploy/rpi/compose.yaml` 编排（通过 `FRONTEND_IMAGE` 引用前端镜像）；
+- 本地后端联调：另起 `backend/docker-compose.yml`（postgres + backend + worker，`:8080`）；
+- 生产：静态资源由 `vibefit-frontend` 容器或 CDN 托管，后端 Fastify 提供 `/api` 与可选云端备份；生产部署由运维通过 `docker-compose.override.yml` 引用 ACR 镜像 digest 编排，仓库不为特定目标维护专用目录；
 - 前端构建命令遵循 `pwa/package.json`，输出到 `pwa/dist/`。
 
 ## Service Worker

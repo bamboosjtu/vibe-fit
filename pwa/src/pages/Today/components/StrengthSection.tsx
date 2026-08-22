@@ -165,45 +165,71 @@ function PhaseSection({
               <Typography sx={{ color: 'text.secondary', fontSize: '0.8rem', mb: 1 }}>
                 选择本阶段动作后，可直接记录重量、次数与完成状态。
               </Typography>
-              <Box sx={{ display: 'flex', gap: 0.8, flexWrap: 'wrap' }}>
-                {phase.groups.map(group => (
-                  <Button
-                    key={group.id}
-                    data-testid={`add-exercise-${group.id}`}
-                    size="small"
-                    variant="outlined"
-                    startIcon={<AddIcon />}
-                    onClick={() => onOpenGroupSelector(phase.id, group)}
-                    sx={{
-                      borderWidth: '1px !important',
-                      borderColor: vfTokens.borderActive,
-                      borderRadius: '7px',
-                      color: vfTokens.primaryDark,
-                      bgcolor: vfTokens.primarySurface,
-                      fontSize: '0.75rem',
-                      fontWeight: 800,
-                    }}
-                  >
-                    添加{group.name}
-                  </Button>
-                ))}
-              </Box>
+              <Box sx={{ display: 'grid', gap: 0.5 }}>
+                  {phase.groups.map(group => (
+                    <Box key={group.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, minHeight: 36 }}>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography component="span" sx={{ fontSize: '0.85rem', fontWeight: 700 }}>{group.name}</Typography>
+                        {group.description && (
+                          <Typography component="span" sx={{ color: 'text.secondary', fontSize: '0.75rem', ml: 0.75 }}>{group.description}</Typography>
+                        )}
+                      </Box>
+                      <Button
+                        data-testid={`add-exercise-${group.id}`}
+                        size="small"
+                        variant="outlined"
+                        startIcon={<AddIcon />}
+                        onClick={() => onOpenGroupSelector(phase.id, group)}
+                        sx={{
+                          borderWidth: '1px !important',
+                          borderColor: vfTokens.borderActive,
+                          borderRadius: '7px',
+                          color: vfTokens.primaryDark,
+                          bgcolor: vfTokens.primarySurface,
+                          fontSize: '0.75rem',
+                          fontWeight: 800,
+                          flexShrink: 0,
+                        }}
+                      >
+                        添加
+                      </Button>
+                    </Box>
+                  ))}
+                </Box>
             </Box>
           ) : (
-            exercisesByGroup.map(({ group, exercises }) => (
-              <Box key={group.id}>
-                {exercises.map(exercise => <ExerciseCard key={exercise.id} sessionExercise={exercise} />)}
-                <Button
-                  data-testid={`add-exercise-${group.id}`}
-                  size="small"
-                  startIcon={<AddIcon />}
-                  onClick={() => onOpenGroupSelector(phase.id, group)}
-                  sx={{ ml: 0.75, mb: 0.75, color: vfTokens.primaryDark, fontSize: '0.72rem', fontWeight: 800 }}
-                >
-                  添加{group.name}动作
-                </Button>
-              </Box>
-            ))
+            exercisesByGroup.map(({ group, exercises }) => {
+                const groupCompletedSets = exercises.reduce(
+                  (total, ex) => total + ex.sets.filter((s) => Boolean(s.completedAt)).length,
+                  0,
+                );
+                const groupTarget = group.targetTotalSets ?? 0;
+                return (
+                  <Box key={group.id} sx={{ mb: 0.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, px: 0.75, py: 0.5 }}>
+                      <Typography sx={{ fontSize: '0.85rem', fontWeight: 800 }}>{group.name}</Typography>
+                      {group.description && (
+                        <Typography sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>{group.description}</Typography>
+                      )}
+                      {groupTarget > 0 && (
+                        <Typography sx={{ color: 'text.secondary', fontSize: '0.75rem', ml: 'auto' }}>
+                          完成 {groupCompletedSets}/{groupTarget} 组
+                        </Typography>
+                      )}
+                    </Box>
+                    {exercises.map(exercise => <ExerciseCard key={exercise.id} sessionExercise={exercise} />)}
+                    <Button
+                      data-testid={`add-exercise-${group.id}`}
+                      size="small"
+                      startIcon={<AddIcon />}
+                      onClick={() => onOpenGroupSelector(phase.id, group)}
+                      sx={{ ml: 0.75, mb: 0.75, color: vfTokens.primaryDark, fontSize: '0.72rem', fontWeight: 800 }}
+                    >
+                      添加{group.name}动作
+                    </Button>
+                  </Box>
+                );
+              })
           )}
         </Box>
       )}

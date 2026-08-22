@@ -6,8 +6,9 @@
 # 产出镜像（多架构 linux/amd64 + linux/arm64）：
 #   - vibefit-frontend  （nginx + 构建产物 + Service Worker）
 #
-# backend 镜像由 backend/docker-bake.hcl 单独构建。前端镜像默认不反代后端，
-# 跨端一体化部署由 backend/deploy/rpi/compose.yaml 编排（通过 FRONTEND_IMAGE 引用）。
+# backend 镜像由 backend/docker-bake.hcl 单独构建，前后端独立部署。
+# 前端 nginx 通过同源 /api/* 反代到 upstream backend（同 Docker 网络时生效），
+# 生产部署由运维通过 docker-compose.override.yml 注入 backend upstream 与镜像 tag。
 
 variable "REGISTRY" {
   default = "crpi-replace.cn-hangzhou.personal.cr.aliyuncs.com"

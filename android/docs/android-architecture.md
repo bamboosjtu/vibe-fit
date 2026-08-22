@@ -180,7 +180,7 @@ VibeFit 当前是一个**前后端分离的移动端优先 PWA**：
 
 - 使用 `@capacitor-community/sqlite` 的 `version` 与 `migrate` 能力管理 schema 演进。
 - 每次启动校验 `PRAGMA user_version`，按需执行增量迁移脚本。
-- 迁移脚本与现有 `backend/prisma/migrations` 思路一致：每个版本一个 SQL 文件，顺序执行。
+- 迁移脚本与 `backend/prisma/init.sql` 思路一致：每个版本一个 SQL 文件，顺序执行。
 
 ## 5. 数据访问层（Repository 抽象）
 
@@ -316,10 +316,9 @@ fit-topic/
 │   └── docker-bake.hcl             # 前端镜像多架构构建
 ├── backend/                        # Fastify + Prisma 后端（PWA 与 Android 共同云端备份）
 │   ├── src/
-│   ├── prisma/                     # Prisma schema + 迁移 SQL
-│   ├── deploy/rpi/                 # 树莓派一体化部署套件（含 frontend 镜像引用）
-│   ├── docker-compose.yml          # 后端本地容器栈（postgres + migrate + backend + worker）
-│   └── docker-bake.hcl             # 后端镜像多架构构建（backend/worker/maintenance/postgres/caddy）
+│   ├── prisma/                     # Prisma schema + init.sql（幂等建表 SQL）
+│   ├── docker-compose.yml          # 后端本地容器栈（postgres + backend + worker）
+│   └── docker-bake.hcl             # 后端镜像多架构构建（backend/worker）
 ├── android/                        # Capacitor 安卓工程
 │   ├── capacitor.config.ts          # webDir → ../pwa/dist
 │   ├── package.json                 # Capacitor 8 依赖

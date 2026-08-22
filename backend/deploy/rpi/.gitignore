@@ -1,9 +1,0 @@
-config.env
-images.lock.env
-images.lock.env.tmp.*
-releases/
-soak/
-secrets/*
-!secrets/README.md
-__pycache__/
-*.pyc
