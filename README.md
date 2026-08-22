@@ -173,6 +173,7 @@ fit-topic
 
 | 文档                                                                           | 说明                                                      |
 | ------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| [docs/产品需求文档.md](./docs/产品需求文档.md)                                | 产品需求文档：功能性需求、用户流程、范围与非目标          |
 | [backend/docs/development.md](./backend/docs/development.md)                  | 后端开发指南：API 契约、数据库设计                        |
 | [backend/docs/deployment.md](./backend/docs/deployment.md)                    | 后端本地 Docker 部署                                      |
 | [backend/docs/gcloud.md](./backend/docs/gcloud.md)                            | GCP 可选云端部署与运维（Cloud Run / Cloud SQL / Pub/Sub） |
